@@ -13,8 +13,9 @@ Design and planning.
 - [x] Import first, then automatically rename after MinerU conversion improves metadata.
 - [x] Defer Zotero and Attanger support to phase 2.
 - [x] Create Chinese documentation under `docs/zh/`.
-- [ ] Review and approve the written MVP spec.
-- [ ] Create an implementation plan after spec approval.
+- [x] Review and approve the written MVP spec.
+- [x] Create an implementation plan after spec approval.
+- [ ] Execute the MVP implementation plan.
 
 ## Implementation Backlog
 
@@ -55,3 +56,7 @@ Design and planning.
 - Decide whether the first MinerU integration should reuse existing scripts or wrap a new cleaner client.
 - Decide how much metadata extraction to do before MinerU conversion.
 - Decide whether indexes remain JSONL only in MVP or also include SQLite later.
+
+## Implementation Plan
+
+- `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`

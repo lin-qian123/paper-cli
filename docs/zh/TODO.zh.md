@@ -13,8 +13,9 @@
 - [x] 先导入，再在 MinerU 转换后根据更好元数据自动重命名。
 - [x] 将 Zotero 和 Attanger 支持推迟到第二阶段。
 - [x] 创建中文文档目录和中文版本。
-- [ ] 审阅并确认已写好的 MVP spec。
-- [ ] spec 确认后创建实现计划。
+- [x] 审阅并确认已写好的 MVP spec。
+- [x] spec 确认后创建实现计划。
+- [ ] 执行 MVP 实现计划。
 
 ## 实现待办
 
@@ -56,3 +57,6 @@
 - 决定 MinerU 转换前要做多少元数据抽取。
 - 决定 MVP 索引是否只保留 JSONL，还是后续加入 SQLite。
 
+## 实现计划
+
+- `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`
