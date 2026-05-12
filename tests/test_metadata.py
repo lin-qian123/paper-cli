@@ -1,6 +1,7 @@
+import logging
 from pathlib import Path
 
-from paper_cli.metadata import metadata_from_filename
+from paper_cli.metadata import fast_metadata, metadata_from_filename
 
 
 def test_parse_author_year_title_filename():
@@ -26,3 +27,12 @@ def test_fallback_title_from_stem():
     assert meta["title"] == "unknown-paper"
     assert meta["creators"] == []
     assert meta["year"] is None
+
+
+def test_invalid_pdf_metadata_does_not_emit_warning(tmp_path, caplog):
+    pdf = tmp_path / "invalid.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    caplog.set_level(logging.WARNING)
+    meta = fast_metadata(pdf)
+    assert meta["title"] == "invalid"
+    assert "EOF marker" not in caplog.text
