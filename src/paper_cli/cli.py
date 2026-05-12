@@ -4,6 +4,8 @@ from pathlib import Path
 
 from . import __version__
 from .config import init_library
+from .convert import convert_pending
+from .converters.local_zip import LocalFixtureConverter
 from .importer import import_path
 
 
@@ -22,6 +24,10 @@ def build_parser() -> argparse.ArgumentParser:
     destination = import_parser.add_mutually_exclusive_group(required=True)
     destination.add_argument("--collection")
     destination.add_argument("--inbox", action="store_true")
+
+    convert_parser = subparsers.add_parser("convert", help="convert pending papers")
+    convert_parser.add_argument("--pending", action="store_true")
+    convert_parser.add_argument("--fixture-output")
 
     return parser
 
@@ -49,5 +55,17 @@ def main(argv: list[str] | None = None) -> int:
             inbox=args.inbox,
         )
         _emit({"ok": True, "imported": [str(path) for path in imported]}, args.json)
+        return 0
+    if args.command == "convert":
+        if not args.pending:
+            parser.error("convert currently requires --pending")
+        if args.fixture_output:
+            converter = LocalFixtureConverter(Path(args.fixture_output))
+        else:
+            from .converters.mineru import MinerUConverter
+
+            converter = MinerUConverter()
+        converted = convert_pending(Path(args.library), converter)
+        _emit({"ok": True, "converted": [str(path) for path in converted]}, args.json)
         return 0
     return 0
