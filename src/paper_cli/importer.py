@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .config import load_config
 from .fs import collection_root, copy_file, discover_pdfs, sha256_file
+from .indexes import rebuild_papers_index
 from .metadata import fast_metadata
 from .models import PaperRecord, read_paper, write_paper
 from .naming import render_name, resolve_duplicate_name, sanitize_name
@@ -68,4 +69,5 @@ def import_path(library_dir: Path, input_path: Path, collection: str | None, inb
         result = import_pdf(library_dir, pdf, collection=collection, inbox=inbox)
         if result is not None:
             imported.append(result)
+    rebuild_papers_index(library_dir)
     return imported
