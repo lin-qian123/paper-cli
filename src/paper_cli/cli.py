@@ -6,7 +6,10 @@ from . import __version__
 from .config import init_library
 from .convert import convert_pending
 from .converters.local_zip import LocalFixtureConverter
+from .doctor import library_status, run_doctor
+from .indexes import find_paper_dirs
 from .importer import import_path
+from .models import read_paper
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
     convert_parser = subparsers.add_parser("convert", help="convert pending papers")
     convert_parser.add_argument("--pending", action="store_true")
     convert_parser.add_argument("--fixture-output")
+
+    subparsers.add_parser("list", help="list papers")
+    subparsers.add_parser("status", help="show library status")
+    subparsers.add_parser("doctor", help="validate library")
 
     return parser
 
@@ -68,4 +75,39 @@ def main(argv: list[str] | None = None) -> int:
         converted = convert_pending(Path(args.library), converter)
         _emit({"ok": True, "converted": [str(path) for path in converted]}, args.json)
         return 0
+    if args.command == "list":
+        rows = []
+        for bundle_dir in find_paper_dirs(Path(args.library)):
+            record = read_paper(bundle_dir)
+            rows.append(
+                {
+                    "id": record.id,
+                    "name": record.name,
+                    "collection": record.collection,
+                    "status": record.status,
+                    "path": str(bundle_dir),
+                }
+            )
+        if args.json:
+            _emit({"papers": rows}, True)
+        else:
+            for row in rows:
+                print(f"{row['id'][:18]}  {row['status'].get('conversion')}  {row['name']}")
+        return 0
+    if args.command == "status":
+        status = library_status(Path(args.library))
+        if args.json:
+            _emit(status, True)
+        else:
+            for key, value in status.items():
+                print(f"{key}: {value}")
+        return 0
+    if args.command == "doctor":
+        issues = run_doctor(Path(args.library))
+        if args.json:
+            _emit({"ok": not issues, "issues": [issue.to_dict() for issue in issues]}, True)
+        else:
+            for issue in issues:
+                print(f"{issue.code}: {issue.path} - {issue.message}")
+        return 1 if issues else 0
     return 0
