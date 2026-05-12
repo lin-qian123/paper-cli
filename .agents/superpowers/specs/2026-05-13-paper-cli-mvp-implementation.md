@@ -684,6 +684,12 @@ Responsibilities:
 
 ## Notes For Implementation
 
+- Work in the current repository directory.
+- Copy imported PDFs into paper bundles by default.
+- Read the real MinerU API key from the existing environment.
+- Main user-facing commands should support structured `--json` output.
+- Use SHA-256 based duplicate detection and skip existing duplicate PDFs by default.
+- Do not implement delete/destructive bundle commands in the MVP.
 - Keep real MinerU calls serial for MVP.
 - Do not add Zotero code in this implementation pass.
 - Do not add SQLite in MVP unless JSONL proves insufficient during implementation.

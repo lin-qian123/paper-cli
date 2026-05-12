@@ -16,6 +16,7 @@ Design and planning.
 - [x] Review and approve the written MVP spec.
 - [x] Create an implementation plan after spec approval.
 - [x] Clarify technology route: Python MVP, Rust as later large-scale candidate, language-neutral file/CLI contracts.
+- [x] Confirm implementation defaults: current repository only, copy PDFs into bundles, MinerU API from environment, JSON output for main commands, hash-based duplicate skipping, no delete command in MVP.
 - [ ] Execute the MVP implementation plan.
 
 ## Implementation Backlog
