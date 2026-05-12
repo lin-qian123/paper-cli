@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Design and planning.
+Local-folder MVP implemented and under verification. Next work should focus on real-paper validation, robustness fixes, and phase-2 adapter planning.
 
 ## Approved MVP
 
