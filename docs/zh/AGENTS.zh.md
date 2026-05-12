@@ -17,6 +17,14 @@
 - Zotero、Attanger、BibTeX、CSL JSON 和其他来源适配器放到后续阶段。
 - 将 MinerU 抽取结果与后续笔记、总结、分类、评审内容分开保存。
 
+## 技术方向
+
+- MVP 使用 Python，因为第一阶段主要是文件系统操作、PDF 元数据抽取、MinerU API 集成、YAML/JSONL 持久化和快速测试迭代。
+- 架构保持语言中立。长期稳定的产品契约是 paper bundle 目录结构、`paper.yaml`、`conversion.json`、JSONL 索引、稳定退出码和结构化 CLI 输出。
+- Rust 作为后续较大范围开发的优先候选，尤其适合稳健的可分发 CLI、高吞吐索引、并发转换调度和跨平台打包。
+- 不要让 Python 内部 API 成为长期产品 API。适配器、文件格式和 CLI 行为要足够明确，使未来 Rust 实现可以替换或包装 Python MVP。
+- 尽早为面向用户的命令增加 `--json` 输出，让 agent 依赖结构化输出，而不是解析自然语言文本。
+
 ## MVP 范围
 
 第一版围绕以下命令建立可用骨架：
@@ -59,4 +67,3 @@ MVP 导入本地 PDF 文件或文件夹，将 PDF 复制进文献库，用 Miner
 - 当项目定位、命令、安装步骤或当前状态变化时，更新 `README.md`。
 - 每次有意义的开发推进后，更新 `TODO.md`。
 - 较大的已确认设计写入 `docs/superpowers/specs/`。
-

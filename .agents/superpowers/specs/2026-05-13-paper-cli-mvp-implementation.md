@@ -4,9 +4,9 @@
 
 **Goal:** Build the first working `paper-cli` MVP for local PDF folder import, copied paper bundles, MinerU conversion, metadata-first naming, post-conversion rename, indexes, and diagnostics.
 
-**Architecture:** Implement a focused Python CLI under `src/paper_cli`. Keep domain logic independent from the CLI so import, naming, indexing, conversion, and doctor checks are testable without real network calls. Wrap MinerU behind a converter interface so tests use fake conversion output and real API code stays isolated.
+**Architecture:** Implement a focused Python CLI under `src/paper_cli` for the MVP, while treating the paper bundle layout, YAML/JSONL files, structured `--json` output, and exit codes as the durable product contract. Keep domain logic independent from the CLI so import, naming, indexing, conversion, and doctor checks are testable without real network calls. Wrap MinerU behind a converter interface so tests use fake conversion output and real API code stays isolated.
 
-**Tech Stack:** Python 3.11+, `argparse`, `PyYAML`, `pypdf`, `requests`, `pytest`.
+**Tech Stack:** Python 3.11+, `argparse`, `PyYAML`, `pypdf`, `requests`, `pytest`. Rust is deferred as a post-MVP candidate for larger-scale CLI/core work after contracts stabilize.
 
 ---
 
@@ -57,6 +57,14 @@ Responsibilities:
 - `converters/local_zip.py`: fake/local converter for tests.
 - `convert.py`: pending conversion and post-conversion rename.
 - `doctor.py`: library validation checks.
+
+## Technology Constraints
+
+- MVP implementation is Python for speed and ecosystem fit.
+- Do not expose Python internals as the long-term API.
+- Add structured `--json` output to user-facing commands as they are implemented.
+- Keep file formats explicit and language-neutral so a future Rust CLI/core can reuse the same paper library without migration.
+- Do not introduce Rust in this implementation pass.
 
 ## Chunk 1: Scaffold And Init
 
@@ -679,4 +687,5 @@ Responsibilities:
 - Keep real MinerU calls serial for MVP.
 - Do not add Zotero code in this implementation pass.
 - Do not add SQLite in MVP unless JSONL proves insufficient during implementation.
+- Do not add Rust in this MVP pass; document Rust as a later candidate after the contracts are proven.
 - Preserve English docs as engineering source of truth, but keep Chinese docs aligned after meaningful changes.

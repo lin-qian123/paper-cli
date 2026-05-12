@@ -15,6 +15,7 @@
 - [x] 创建中文文档目录和中文版本。
 - [x] 审阅并确认已写好的 MVP spec。
 - [x] spec 确认后创建实现计划。
+- [x] 明确技术路线：Python 做 MVP，Rust 作为后续大范围开发候选，文件/CLI 契约保持语言中立。
 - [ ] 执行 MVP 实现计划。
 
 ## 实现待办
@@ -42,6 +43,7 @@
 
 ## 第二阶段想法
 
+- [ ] 在 paper bundle 和 CLI 契约稳定后，评估 Rust CLI/core。
 - [ ] Zotero 只读导入适配器。
 - [ ] attachment resolver 抽象。
 - [ ] Attanger 风格 attachment-root 映射。
@@ -52,7 +54,7 @@
 
 ## 阻塞点 / 待定问题
 
-- 决定实现语言和 CLI 框架。
+- MVP 实现语言为 Python；在契约稳定后重新评估 Rust 是否适合后续大范围开发。
 - 决定第一版 MinerU 集成是复用现有脚本，还是包装一个更干净的新 client。
 - 决定 MinerU 转换前要做多少元数据抽取。
 - 决定 MVP 索引是否只保留 JSONL，还是后续加入 SQLite。

@@ -38,6 +38,14 @@ MVP 重点是建立一个可靠的本地文献库骨架。它不试图替代 Zot
 - 自动综述生成。
 - 复杂知识图谱功能。
 
+## 技术策略
+
+MVP 应使用 Python 实现。这是务实的 MVP 选择，不是永久的产品身份。第一阶段需要快速围绕本地文件、PDF 元数据抽取、MinerU HTTP 集成、YAML/JSONL 持久化和测试进行迭代；Python 对这些任务最直接，也符合既有 MinerU 工作流经验。
+
+长期系统应保持语言中立。持久 API 是文件系统契约：paper bundle 目录结构、`paper.yaml`、`conversion.json`、JSONL 索引、CLI 命令、结构化 `--json` 输出和退出码。这些契约应足够明确，使未来 Rust 实现可以替换或包装 Python MVP。
+
+Rust 是后续较大范围开发的强候选，特别是在 `paper-cli` 发展为广泛分发的 CLI、需要高吞吐索引、并发任务调度、更严格可靠性和跨平台打包时。重新评估 Rust 的触发条件应该是产品契约已经稳定，而不是早期不确定性。
+
 ## 设计原则
 
 1. 保持 paper bundle 自包含。
@@ -371,9 +379,8 @@ Zotero 支持应作为来源适配器实现，而不是作为核心假设。
 
 ## 待定问题
 
-1. 使用哪种实现语言和 CLI 框架？
-2. MVP 索引是否只使用 JSONL？
-3. MinerU 转换前要做多少元数据抽取？
-4. 是否需要一个仅用于元数据的本地 fallback extractor？
-5. `paper convert --pending` 在 MVP 中应先串行处理，还是支持有限并发？
-
+1. MVP 索引是否只使用 JSONL？
+2. MinerU 转换前要做多少元数据抽取？
+3. 是否需要一个仅用于元数据的本地 fallback extractor？
+4. `paper convert --pending` 在 MVP 中应先串行处理，还是支持有限并发？
+5. 在文件和 CLI 契约稳定后，何时评估 Rust 重写或 Rust CLI 包装层？

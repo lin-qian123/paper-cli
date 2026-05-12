@@ -38,6 +38,14 @@ Deferred:
 - Automated literature review generation.
 - Complex knowledge graph features.
 
+## Technology Strategy
+
+The MVP should be implemented in Python. This is a pragmatic MVP choice, not a permanent product identity. The first phase needs fast iteration around local files, PDF metadata extraction, MinerU HTTP integration, YAML/JSONL persistence, and tests; Python is the most direct fit for those jobs and matches the existing MinerU workflow experience.
+
+The long-term system should remain language-neutral. The durable API is the filesystem contract: paper bundle layout, `paper.yaml`, `conversion.json`, JSONL indexes, CLI commands, structured `--json` output, and exit codes. These contracts should be explicit enough that a Rust implementation can replace or wrap the Python MVP later.
+
+Rust is a strong candidate for later larger-scope development, especially if `paper-cli` grows into a widely distributed CLI with high-volume indexing, concurrent job orchestration, stricter reliability requirements, and cross-platform packaging. The trigger for revisiting Rust should be stabilized product contracts, not early uncertainty.
+
 ## Design Principles
 
 1. Keep paper bundles self-contained.
@@ -371,8 +379,8 @@ The core must only require a resolved PDF path and metadata. It should not care 
 
 ## Open Questions
 
-1. Which implementation language and CLI framework should be used?
-2. Should indexes remain JSONL-only for the MVP?
-3. How much metadata extraction should run before MinerU conversion?
-4. Should a local fallback extractor exist for metadata only?
-5. Should `paper convert --pending` process files serially first, or include limited concurrency in the MVP?
+1. Should indexes remain JSONL-only for the MVP?
+2. How much metadata extraction should run before MinerU conversion?
+3. Should a local fallback extractor exist for metadata only?
+4. Should `paper convert --pending` process files serially first, or include limited concurrency in the MVP?
+5. When should the project evaluate a Rust rewrite or Rust CLI wrapper after the file and CLI contracts stabilize?

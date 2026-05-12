@@ -18,6 +18,14 @@ The approved MVP direction is:
 - Import quickly first, then automatically rename bundles after conversion provides better metadata.
 - Defer Zotero and other source adapters to a later phase.
 
+## Technology Direction
+
+The MVP is planned in Python because it is the fastest path for PDF metadata extraction, MinerU API integration, YAML/JSONL persistence, and test-driven iteration.
+
+The long-term architecture should remain language-neutral. The stable contract is the paper bundle format, metadata files, indexes, CLI commands, structured `--json` output, and exit codes.
+
+Rust is a strong candidate for later large-scale development, especially if the project needs a polished single-binary CLI, stronger concurrency, faster indexing, and easier cross-platform distribution. The MVP should therefore avoid exposing Python internals as the product API.
+
 ## Planned MVP Commands
 
 ```bash

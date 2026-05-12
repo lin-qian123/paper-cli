@@ -18,6 +18,14 @@
 - 先快速导入，再在转换得到更好元数据后自动重命名 bundle。
 - Zotero 和其他来源适配器推迟到后续阶段。
 
+## 技术方向
+
+MVP 计划使用 Python，因为它最适合快速完成 PDF 元数据抽取、MinerU API 集成、YAML/JSONL 持久化和测试驱动迭代。
+
+长期架构应该保持语言中立。稳定契约是 paper bundle 格式、元数据文件、索引、CLI 命令、结构化 `--json` 输出和退出码。
+
+Rust 是后续较大范围开发的强候选，尤其适合单二进制 CLI、更强并发、更快索引和更方便的跨平台分发。因此 MVP 不应把 Python 内部实现暴露为产品 API。
+
 ## 计划中的 MVP 命令
 
 ```bash
@@ -94,4 +102,3 @@ MVP：
 ## 开发说明
 
 当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)。
-

@@ -17,6 +17,14 @@ The project should make research papers directly manageable by AI agents by turn
 - Keep Zotero, Attanger, BibTeX, CSL JSON, and other source adapters as later phases.
 - Keep generated extraction artifacts separate from later notes, summaries, classifications, and reviews.
 
+## Technology Direction
+
+- Use Python for the MVP because the first phase is dominated by filesystem operations, PDF metadata extraction, MinerU API integration, YAML/JSONL persistence, and fast test iteration.
+- Keep the architecture language-neutral. The durable product contract is the paper bundle layout, `paper.yaml`, `conversion.json`, JSONL indexes, stable exit codes, and structured CLI output.
+- Treat Rust as the preferred candidate for later large-scale engineering once the product contracts stabilize, especially for a robust distributable CLI, high-volume indexing, concurrent conversion orchestration, and cross-platform packaging.
+- Do not let Python internals become the long-term API. Keep adapters, file formats, and CLI behavior explicit enough that a Rust implementation can replace or wrap the Python MVP later.
+- Add `--json` output to user-facing commands early so agents can depend on structured output instead of parsing prose.
+
 ## MVP Scope
 
 Implement the first usable skeleton around:

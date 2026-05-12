@@ -15,6 +15,7 @@ Design and planning.
 - [x] Create Chinese documentation under `docs/zh/`.
 - [x] Review and approve the written MVP spec.
 - [x] Create an implementation plan after spec approval.
+- [x] Clarify technology route: Python MVP, Rust as later large-scale candidate, language-neutral file/CLI contracts.
 - [ ] Execute the MVP implementation plan.
 
 ## Implementation Backlog
@@ -42,6 +43,7 @@ Design and planning.
 
 ## Phase 2 Ideas
 
+- [ ] Evaluate a Rust CLI/core after the paper bundle and CLI contracts stabilize.
 - [ ] Zotero read-only import adapter.
 - [ ] Attachment resolver abstraction.
 - [ ] Attanger-style attachment-root mapping.
@@ -52,7 +54,7 @@ Design and planning.
 
 ## Blockers / Open Questions
 
-- Decide the implementation language and CLI framework.
+- MVP implementation language is Python; revisit Rust for larger post-MVP development after contracts stabilize.
 - Decide whether the first MinerU integration should reuse existing scripts or wrap a new cleaner client.
 - Decide how much metadata extraction to do before MinerU conversion.
 - Decide whether indexes remain JSONL only in MVP or also include SQLite later.
