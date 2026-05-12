@@ -12,6 +12,7 @@ Design and planning.
 - [x] Use metadata-first naming with user-configurable templates.
 - [x] Import first, then automatically rename after MinerU conversion improves metadata.
 - [x] Defer Zotero and Attanger support to phase 2.
+- [x] Create Chinese documentation under `docs/zh/`.
 - [ ] Review and approve the written MVP spec.
 - [ ] Create an implementation plan after spec approval.
 

@@ -94,3 +94,5 @@ Later phases:
 ## Development Notes
 
 See `TODO.md` for the current task list and `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design.
+
+Chinese documentation is available under `docs/zh/`.
