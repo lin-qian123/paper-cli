@@ -21,10 +21,10 @@ Design and planning.
 
 ## Implementation Backlog
 
-- [ ] Initialize Python project structure.
-- [ ] Choose packaging and CLI framework.
-- [ ] Implement `paper init`.
-- [ ] Implement library config loading from `paper-cli.yaml`.
+- [x] Initialize Python project structure.
+- [x] Choose packaging and CLI framework.
+- [x] Implement `paper init`.
+- [x] Implement library config loading from `paper-cli.yaml`.
 - [ ] Implement local PDF scanner.
 - [ ] Implement PDF copying into paper bundles.
 - [ ] Implement stable paper ID generation.

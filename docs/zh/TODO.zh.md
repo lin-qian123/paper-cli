@@ -21,10 +21,10 @@
 
 ## 实现待办
 
-- [ ] 初始化 Python 项目结构。
-- [ ] 选择打包方式和 CLI 框架。
-- [ ] 实现 `paper init`。
-- [ ] 实现从 `paper-cli.yaml` 加载文献库配置。
+- [x] 初始化 Python 项目结构。
+- [x] 选择打包方式和 CLI 框架。
+- [x] 实现 `paper init`。
+- [x] 实现从 `paper-cli.yaml` 加载文献库配置。
 - [ ] 实现本地 PDF 扫描器。
 - [ ] 实现 PDF 复制到 paper bundle。
 - [ ] 实现稳定 paper ID 生成。
