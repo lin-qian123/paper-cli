@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/paper_cli/__init__.py
+src/paper_cli/__main__.py
+src/paper_cli/cli.py
+src/paper_cli.egg-info/PKG-INFO
+src/paper_cli.egg-info/SOURCES.txt
+src/paper_cli.egg-info/dependency_links.txt
+src/paper_cli.egg-info/entry_points.txt
+src/paper_cli.egg-info/requires.txt
+src/paper_cli.egg-info/top_level.txt
+tests/test_config.py

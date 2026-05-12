@@ -1,0 +1,6 @@
+PyYAML>=6.0.1
+pypdf>=4.0.0
+requests>=2.31.0
+
+[dev]
+pytest>=8.0.0
