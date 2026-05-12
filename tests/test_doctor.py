@@ -25,3 +25,10 @@ def test_status_json_reports_counts(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["total"] == 1
     assert payload["pending"] == 1
+
+
+def test_json_flag_is_accepted_after_subcommand(tmp_path, capsys):
+    library = tmp_path / "library"
+    assert main(["init", str(library), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True

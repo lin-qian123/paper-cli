@@ -12,6 +12,10 @@ from .importer import import_path
 from .models import read_paper
 
 
+def add_json_flag(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="paper-cli")
     parser.add_argument("--library", default=".")
@@ -21,20 +25,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     init_parser = subparsers.add_parser("init", help="initialize a paper-cli library")
     init_parser.add_argument("library_dir")
+    add_json_flag(init_parser)
 
     import_parser = subparsers.add_parser("import", help="import local PDFs")
     import_parser.add_argument("input_path")
     destination = import_parser.add_mutually_exclusive_group(required=True)
     destination.add_argument("--collection")
     destination.add_argument("--inbox", action="store_true")
+    add_json_flag(import_parser)
 
     convert_parser = subparsers.add_parser("convert", help="convert pending papers")
     convert_parser.add_argument("--pending", action="store_true")
     convert_parser.add_argument("--fixture-output")
+    add_json_flag(convert_parser)
 
-    subparsers.add_parser("list", help="list papers")
-    subparsers.add_parser("status", help="show library status")
-    subparsers.add_parser("doctor", help="validate library")
+    list_parser = subparsers.add_parser("list", help="list papers")
+    add_json_flag(list_parser)
+    status_parser = subparsers.add_parser("status", help="show library status")
+    add_json_flag(status_parser)
+    doctor_parser = subparsers.add_parser("doctor", help="validate library")
+    add_json_flag(doctor_parser)
 
     return parser
 
