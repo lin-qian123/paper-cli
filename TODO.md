@@ -17,7 +17,7 @@ Design and planning.
 - [x] Create an implementation plan after spec approval.
 - [x] Clarify technology route: Python MVP, Rust as later large-scale candidate, language-neutral file/CLI contracts.
 - [x] Confirm implementation defaults: current repository only, copy PDFs into bundles, MinerU API from environment, JSON output for main commands, hash-based duplicate skipping, no delete command in MVP.
-- [ ] Execute the MVP implementation plan.
+- [x] Execute the MVP implementation plan.
 
 ## Implementation Backlog
 
@@ -25,22 +25,22 @@ Design and planning.
 - [x] Choose packaging and CLI framework.
 - [x] Implement `paper init`.
 - [x] Implement library config loading from `paper-cli.yaml`.
-- [ ] Implement local PDF scanner.
-- [ ] Implement PDF copying into paper bundles.
-- [ ] Implement stable paper ID generation.
-- [ ] Implement fast metadata extraction.
-- [ ] Implement configurable naming renderer.
-- [ ] Implement filesystem-safe name sanitization and duplicate handling.
-- [ ] Implement MinerU conversion adapter.
-- [ ] Persist `conversion.json`.
-- [ ] Persist `paper.yaml`.
-- [ ] Implement post-conversion metadata refinement.
-- [ ] Implement automatic bundle rename with rename history.
-- [ ] Implement index rebuild.
-- [ ] Implement `paper list`.
-- [ ] Implement `paper status`.
-- [ ] Implement `paper doctor`.
-- [ ] Add focused tests for naming, bundle layout, import idempotency, and rename behavior.
+- [x] Implement local PDF scanner.
+- [x] Implement PDF copying into paper bundles.
+- [x] Implement stable paper ID generation.
+- [x] Implement fast metadata extraction.
+- [x] Implement configurable naming renderer.
+- [x] Implement filesystem-safe name sanitization and duplicate handling.
+- [x] Implement MinerU conversion adapter.
+- [x] Persist `conversion.json`.
+- [x] Persist `paper.yaml`.
+- [x] Implement post-conversion metadata refinement.
+- [x] Implement automatic bundle rename with rename history.
+- [x] Implement index rebuild.
+- [x] Implement `paper list`.
+- [x] Implement `paper status`.
+- [x] Implement `paper doctor`.
+- [x] Add focused tests for naming, bundle layout, import idempotency, and rename behavior.
 
 ## Phase 2 Ideas
 

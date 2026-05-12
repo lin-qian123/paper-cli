@@ -17,7 +17,7 @@
 - [x] spec 确认后创建实现计划。
 - [x] 明确技术路线：Python 做 MVP，Rust 作为后续大范围开发候选，文件/CLI 契约保持语言中立。
 - [x] 确认实现默认值：只在当前仓库开发、PDF 复制进 bundle、MinerU API 来自环境变量、主要命令支持 JSON 输出、按 hash 跳过重复导入、MVP 不做删除命令。
-- [ ] 执行 MVP 实现计划。
+- [x] 执行 MVP 实现计划。
 
 ## 实现待办
 
@@ -25,22 +25,22 @@
 - [x] 选择打包方式和 CLI 框架。
 - [x] 实现 `paper init`。
 - [x] 实现从 `paper-cli.yaml` 加载文献库配置。
-- [ ] 实现本地 PDF 扫描器。
-- [ ] 实现 PDF 复制到 paper bundle。
-- [ ] 实现稳定 paper ID 生成。
-- [ ] 实现快速元数据抽取。
-- [ ] 实现可配置命名模板渲染器。
-- [ ] 实现文件系统安全命名和重名处理。
-- [ ] 实现 MinerU 转换适配器。
-- [ ] 持久化 `conversion.json`。
-- [ ] 持久化 `paper.yaml`。
-- [ ] 实现转换后的元数据补全。
-- [ ] 实现带重命名历史的自动 bundle 重命名。
-- [ ] 实现索引重建。
-- [ ] 实现 `paper list`。
-- [ ] 实现 `paper status`。
-- [ ] 实现 `paper doctor`。
-- [ ] 为命名、bundle 布局、导入幂等性、重命名行为添加聚焦测试。
+- [x] 实现本地 PDF 扫描器。
+- [x] 实现 PDF 复制到 paper bundle。
+- [x] 实现稳定 paper ID 生成。
+- [x] 实现快速元数据抽取。
+- [x] 实现可配置命名模板渲染器。
+- [x] 实现文件系统安全命名和重名处理。
+- [x] 实现 MinerU 转换适配器。
+- [x] 持久化 `conversion.json`。
+- [x] 持久化 `paper.yaml`。
+- [x] 实现转换后的元数据补全。
+- [x] 实现带重命名历史的自动 bundle 重命名。
+- [x] 实现索引重建。
+- [x] 实现 `paper list`。
+- [x] 实现 `paper status`。
+- [x] 实现 `paper doctor`。
+- [x] 为命名、bundle 布局、导入幂等性、重命名行为添加聚焦测试。
 
 ## 第二阶段想法
 

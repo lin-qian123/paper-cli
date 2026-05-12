@@ -6,7 +6,7 @@ Its purpose is to make research papers easier for AI agents to manage and read. 
 
 ## Current Status
 
-Design phase. No implementation code exists yet.
+MVP implementation phase. The first local-folder workflow is implemented and covered by tests.
 
 The approved MVP direction is:
 
@@ -36,6 +36,36 @@ paper convert --pending
 paper list
 paper status
 paper doctor
+```
+
+## Install For Development
+
+```bash
+uv run --with pytest pytest -v
+```
+
+You can also install the project in editable mode:
+
+```bash
+python3 -m pip install -e ".[dev]"
+```
+
+## Basic Workflow
+
+```bash
+python3 -m paper_cli init /path/to/paper-library
+python3 -m paper_cli --library /path/to/paper-library import /path/to/papers --collection "plasma/lwfa" --json
+python3 -m paper_cli --library /path/to/paper-library convert --pending --json
+python3 -m paper_cli --library /path/to/paper-library status --json
+python3 -m paper_cli --library /path/to/paper-library doctor --json
+```
+
+Real MinerU conversion reads the API key from `MINERU_API_KEY`.
+
+For tests and dry runs, `convert` can use fixture output instead of the network:
+
+```bash
+python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
 ```
 
 ## Planned Library Shape

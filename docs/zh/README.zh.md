@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-设计阶段。当前还没有实现代码。
+MVP 实现阶段。第一版本地文件夹工作流已经实现，并有测试覆盖。
 
 已经确认的 MVP 方向：
 
@@ -36,6 +36,36 @@ paper convert --pending
 paper list
 paper status
 paper doctor
+```
+
+## 开发安装
+
+```bash
+uv run --with pytest pytest -v
+```
+
+也可以用 editable 方式安装：
+
+```bash
+python3 -m pip install -e ".[dev]"
+```
+
+## 基本工作流
+
+```bash
+python3 -m paper_cli init /path/to/paper-library
+python3 -m paper_cli --library /path/to/paper-library import /path/to/papers --collection "plasma/lwfa" --json
+python3 -m paper_cli --library /path/to/paper-library convert --pending --json
+python3 -m paper_cli --library /path/to/paper-library status --json
+python3 -m paper_cli --library /path/to/paper-library doctor --json
+```
+
+真实 MinerU 转换从环境变量 `MINERU_API_KEY` 读取 API key。
+
+测试或 dry run 可以用 fixture 输出，不走网络：
+
+```bash
+python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
 ```
 
 ## 计划中的文献库结构
