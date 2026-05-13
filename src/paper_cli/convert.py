@@ -40,11 +40,38 @@ def extract_metadata_from_markdown(markdown: str) -> dict:
     return metadata
 
 
+def _normalize_title_for_match(value: str) -> str:
+    value = re.sub(r"[\u2010-\u2015\u2212]", "-", value)
+    return " ".join(value.split())
+
+
+def infer_creator_from_title_prefix(previous_title: str | None, converted_title: str | None) -> str | None:
+    if not previous_title or not converted_title:
+        return None
+    previous = _normalize_title_for_match(previous_title)
+    converted = _normalize_title_for_match(converted_title)
+    if previous == converted or not previous.endswith(converted):
+        return None
+    prefix = previous[: -len(converted)].strip()
+    prefix = re.sub(r"[-:：|丨]+$", "", prefix).strip()
+    if not prefix or len(prefix) > 80:
+        return None
+    if re.search(r"\d", prefix):
+        return None
+    return prefix
+
+
 def _merge_metadata(existing: dict, update: dict) -> dict:
     merged = dict(existing)
+    inferred_creator = infer_creator_from_title_prefix(
+        str(existing.get("title") or ""),
+        str(update.get("title") or ""),
+    )
     for key, value in update.items():
         if value not in (None, "", []):
             merged[key] = value
+    if inferred_creator and not update.get("creators"):
+        merged["creators"] = [{"name": inferred_creator, "role": "author"}]
     return merged
 
 

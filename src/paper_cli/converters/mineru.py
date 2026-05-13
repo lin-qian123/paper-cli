@@ -81,6 +81,7 @@ class MinerUConverter:
         response.raise_for_status()
         output_dir.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            extracted_files = [Path(name) for name in archive.namelist() if not name.endswith("/")]
             archive.extractall(output_dir)
 
         markdown_files = sorted(output_dir.glob("**/*.md"))
@@ -95,4 +96,26 @@ class MinerUConverter:
         if image_dirs and not images_dir.exists():
             shutil.move(str(image_dirs[0]), images_dir)
         images_dir.mkdir(parents=True, exist_ok=True)
+        self._move_raw_sidecars(output_dir, extracted_files)
         return ConversionResult(ok=True, markdown_path=markdown_path, images_dir=images_dir, raw={"zip_url": zip_url})
+
+    def _move_raw_sidecars(self, output_dir: Path, extracted_files: list[Path]) -> None:
+        raw_dir = output_dir / "raw" / "mineru"
+        for relative in extracted_files:
+            source = output_dir / relative
+            if not source.exists() or source == output_dir / "paper.md":
+                continue
+            if source.is_relative_to(output_dir / "images"):
+                continue
+            if "images" in source.relative_to(output_dir).parts:
+                continue
+            raw_dir.mkdir(parents=True, exist_ok=True)
+            target = raw_dir / source.name
+            if target.exists():
+                target = raw_dir / "_".join(source.relative_to(output_dir).parts)
+            shutil.move(str(source), str(target))
+        for directory in sorted(output_dir.glob("**/*"), key=lambda path: len(path.parts), reverse=True):
+            if directory == raw_dir or raw_dir in directory.parents:
+                continue
+            if directory.is_dir() and directory != output_dir and not any(directory.iterdir()):
+                directory.rmdir()

@@ -1,12 +1,12 @@
 # paper-cli
 
-`paper-cli` 是一个计划中的本地优先、面向 agent 原生使用的文献管理命令行工具。
+`paper-cli` 是一个本地优先、面向 agent 原生使用的文献管理命令行工具。
 
 它的目标是让 AI agent 更容易管理和阅读研究论文。项目不再把 PDF 文件作为主要工作界面，而是构建结构化 paper bundle：其中包含复制后的 PDF、MinerU 转换得到的 Markdown、提取图片、元数据、转换状态和索引。
 
 ## 当前状态
 
-MVP 实现阶段。第一版本地文件夹工作流已经实现，并有测试覆盖。
+本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态和运行文献库检查。
 
 已经确认的 MVP 方向：
 
@@ -20,13 +20,13 @@ MVP 实现阶段。第一版本地文件夹工作流已经实现，并有测试�
 
 ## 技术方向
 
-MVP 计划使用 Python，因为它最适合快速完成 PDF 元数据抽取、MinerU API 集成、YAML/JSONL 持久化和测试驱动迭代。
+MVP 使用 Python 实现，因为它最适合快速完成 PDF 元数据抽取、MinerU API 集成、YAML/JSONL 持久化和测试驱动迭代。
 
 长期架构应该保持语言中立。稳定契约是 paper bundle 格式、元数据文件、索引、CLI 命令、结构化 `--json` 输出和退出码。
 
 Rust 是后续较大范围开发的强候选，尤其适合单二进制 CLI、更强并发、更快索引和更方便的跨平台分发。因此 MVP 不应把 Python 内部实现暴露为产品 API。
 
-## 计划中的 MVP 命令
+## MVP 命令
 
 ```bash
 paper init <library-dir>
@@ -68,7 +68,7 @@ python3 -m paper_cli --library /path/to/paper-library doctor --json
 python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
 ```
 
-## 计划中的文献库结构
+## 文献库结构
 
 ```text
 paper-library/
@@ -132,3 +132,5 @@ MVP：
 ## 开发说明
 
 当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)。
+
+本地测试文献库可以放在 `paper-libraries/` 下。该目录已被 git 忽略，因为里面可能包含复制后的 PDF 和 MinerU 输出。

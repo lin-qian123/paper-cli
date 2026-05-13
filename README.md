@@ -1,12 +1,12 @@
 # paper-cli
 
-`paper-cli` is a planned local-first, agent-native literature management CLI.
+`paper-cli` is a local-first, agent-native literature management CLI.
 
 Its purpose is to make research papers easier for AI agents to manage and read. Instead of treating PDF files as the main working surface, `paper-cli` builds structured paper bundles that contain the copied PDF, MinerU-converted Markdown, extracted images, metadata, conversion state, and indexes.
 
 ## Current Status
 
-MVP implementation phase. The first local-folder workflow is implemented and covered by tests.
+Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, and running library checks.
 
 The approved MVP direction is:
 
@@ -20,13 +20,13 @@ The approved MVP direction is:
 
 ## Technology Direction
 
-The MVP is planned in Python because it is the fastest path for PDF metadata extraction, MinerU API integration, YAML/JSONL persistence, and test-driven iteration.
+The MVP is implemented in Python because it is the fastest path for PDF metadata extraction, MinerU API integration, YAML/JSONL persistence, and test-driven iteration.
 
 The long-term architecture should remain language-neutral. The stable contract is the paper bundle format, metadata files, indexes, CLI commands, structured `--json` output, and exit codes.
 
 Rust is a strong candidate for later large-scale development, especially if the project needs a polished single-binary CLI, stronger concurrency, faster indexing, and easier cross-platform distribution. The MVP should therefore avoid exposing Python internals as the product API.
 
-## Planned MVP Commands
+## MVP Commands
 
 ```bash
 paper init <library-dir>
@@ -68,7 +68,7 @@ For tests and dry runs, `convert` can use fixture output instead of the network:
 python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
 ```
 
-## Planned Library Shape
+## Library Shape
 
 ```text
 paper-library/
@@ -134,3 +134,5 @@ Later phases:
 See `TODO.md` for the current task list and `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design.
 
 Chinese documentation is available under `docs/zh/`.
+
+Local test libraries can be kept under `paper-libraries/`. That directory is ignored by git because it may contain copied PDFs and MinerU outputs.

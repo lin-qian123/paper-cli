@@ -2,7 +2,25 @@
 
 ## Current Phase
 
-Local-folder MVP implemented and under verification. Next work should focus on real-paper validation, robustness fixes, and phase-2 adapter planning.
+Local-folder MVP implemented and covered by tests. Next work should focus on real-paper validation, robustness fixes, and phase-2 adapter planning.
+
+## Validation Log
+
+- 2026-05-13: Tested the desktop PDF `Advanced Science - 2026 - Guo - Helical Electron Beam Micro-Bunching by High-Order Modes in a Micro-Plasma Waveguide.pdf` in a temporary library under `/tmp`.
+  - Import succeeded and copied the PDF into an inbox bundle.
+  - Real MinerU conversion succeeded with `MINERU_API_KEY`.
+  - `paper.md`, `images/`, `paper.yaml`, `conversion.json`, and JSONL indexes were created.
+  - `paper status --json` reported `total=1`, `converted=1`, `failed=0`, `pending=0`.
+  - `paper doctor --json` reported no issues.
+  - MinerU output contained 266 Markdown lines and 17 extracted images.
+  - Known issue: fast filename metadata parsed `Advanced Science` as the creator, and post-conversion metadata did not reliably correct the author field from this real MinerU Markdown.
+  - Known issue: MinerU raw sidecar files such as `layout.json`, `*_content_list.json`, and `*_origin.pdf` currently remain in the bundle root instead of a dedicated raw-output directory.
+- 2026-05-13 follow-up fix:
+  - Added title-prefix creator inference for cases like `Journal - Year - Author - Title.pdf` when MinerU provides the clean title.
+  - Added dash normalization so Unicode dash variants in PDF filenames still match ASCII dashes in MinerU Markdown titles.
+  - Added MinerU sidecar normalization into `raw/mineru/` for mocked ZIP outputs.
+  - Replayed the desktop PDF through the existing MinerU output as a fixture; the bundle now renames to `Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes in a Micro-Plasma Waveguide`.
+  - Re-ran real MinerU conversion inside `paper-libraries/desktop-live-test`; `paper status` and `paper doctor` passed, the bundle used `Guo et al.` naming, and MinerU sidecars were stored under `raw/mineru/`.
 
 ## Approved MVP
 
@@ -53,12 +71,20 @@ Local-folder MVP implemented and under verification. Next work should focus on r
 - [ ] Review queue for ambiguous classification or naming.
 - [ ] Search and retrieval over converted Markdown.
 
-## Blockers / Open Questions
+## Robustness Backlog
+
+- [x] Improve post-conversion author inference for `Journal - Year - Author - Title.pdf` filenames when MinerU provides the clean title.
+- [ ] Improve direct author extraction from MinerU Markdown title pages when no explicit `Authors:` line exists and filename inference is unavailable.
+- [ ] Mark low-confidence metadata from filename parsing so conversion-time metadata can override it more aggressively.
+- [x] Normalize MinerU raw sidecar files into a dedicated raw-output directory for newly converted bundles.
+- [ ] Add a real-MinerU smoke-test checklist that can be run manually without committing user PDFs.
+
+## Remaining Decisions
 
 - MVP implementation language is Python; revisit Rust for larger post-MVP development after contracts stabilize.
-- Decide whether the first MinerU integration should reuse existing scripts or wrap a new cleaner client.
-- Decide how much metadata extraction to do before MinerU conversion.
-- Decide whether indexes remain JSONL only in MVP or also include SQLite later.
+- The current MinerU integration uses a clean in-project client. Validate it against real papers before deciding whether any workflow from older scripts should be reused.
+- The current pre-conversion metadata pass is intentionally lightweight. Revisit only after real-paper validation shows concrete naming or classification gaps.
+- MVP indexes remain JSONL. Revisit SQLite only when search, filtering, or larger-library performance needs justify it.
 
 ## Implementation Plan
 
