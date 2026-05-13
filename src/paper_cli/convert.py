@@ -45,7 +45,9 @@ def _normalize_title_for_match(value: str) -> str:
     return " ".join(value.split())
 
 
-def infer_creator_from_title_prefix(previous_title: str | None, converted_title: str | None) -> str | None:
+def infer_creator_from_title_prefix(
+    previous_title: str | None, converted_title: str | None
+) -> str | None:
     if not previous_title or not converted_title:
         return None
     previous = _normalize_title_for_match(previous_title)

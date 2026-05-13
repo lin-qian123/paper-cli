@@ -7,8 +7,8 @@ from .config import init_library
 from .convert import convert_pending
 from .converters.local_zip import LocalFixtureConverter
 from .doctor import library_status, run_doctor
-from .indexes import find_paper_dirs
 from .importer import import_path
+from .indexes import find_paper_dirs
 from .models import read_paper
 
 

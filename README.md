@@ -41,13 +41,19 @@ paper doctor
 ## Install For Development
 
 ```bash
-uv run --with pytest pytest -v
+uv run --extra dev pytest -v
 ```
 
 You can also install the project in editable mode:
 
 ```bash
 python3 -m pip install -e ".[dev]"
+```
+
+Preferred local verification:
+
+```bash
+make verify
 ```
 
 ## Basic Workflow
@@ -132,6 +138,13 @@ Later phases:
 ## Development Notes
 
 See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, and `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design.
+
+Contract docs:
+
+- `docs/contracts/paper-yaml.md`
+- `docs/contracts/conversion-json.md`
+- `docs/contracts/cli-json.md`
+- `docs/smoke-tests/mineru.md`
 
 Chinese documentation is available under `docs/zh/`.
 

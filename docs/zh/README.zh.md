@@ -41,13 +41,19 @@ paper doctor
 ## 开发安装
 
 ```bash
-uv run --with pytest pytest -v
+uv run --extra dev pytest -v
 ```
 
 也可以用 editable 方式安装：
 
 ```bash
 python3 -m pip install -e ".[dev]"
+```
+
+推荐的本地验证命令：
+
+```bash
+make verify
 ```
 
 ## 基本工作流
@@ -132,5 +138,12 @@ MVP：
 ## 开发说明
 
 当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。
+
+契约和验证文档：
+
+- [paper-yaml.zh.md](contracts/paper-yaml.zh.md)
+- [conversion-json.zh.md](contracts/conversion-json.zh.md)
+- [cli-json.zh.md](contracts/cli-json.zh.md)
+- [mineru.zh.md](smoke-tests/mineru.zh.md)
 
 本地测试文献库可以放在 `paper-libraries/` 下。该目录已被 git 忽略，因为里面可能包含复制后的 PDF 和 MinerU 输出。

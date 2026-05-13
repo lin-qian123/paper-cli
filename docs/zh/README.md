@@ -11,3 +11,7 @@
 - [TODO.zh.md](TODO.zh.md)：待办事项、阶段状态和后续计划。
 - [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)：MVP 设计说明。
 - [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)：工程化设计说明。
+- [contracts/paper-yaml.zh.md](contracts/paper-yaml.zh.md)：`paper.yaml` 契约。
+- [contracts/conversion-json.zh.md](contracts/conversion-json.zh.md)：`conversion.json` 契约。
+- [contracts/cli-json.zh.md](contracts/cli-json.zh.md)：CLI JSON 输出契约。
+- [smoke-tests/mineru.zh.md](smoke-tests/mineru.zh.md)：真实 MinerU smoke test 清单。

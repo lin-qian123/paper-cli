@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import re
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
-
 
 YEAR_PATTERN = re.compile(r"^(?P<creator>.+?)\s+-\s+(?P<year>\d{4})\s+-\s+(?P<title>.+)$")
 logging.getLogger("pypdf").setLevel(logging.ERROR)

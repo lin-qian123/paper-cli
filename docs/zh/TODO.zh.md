@@ -8,9 +8,10 @@
 
 - [x] 提交已验证的 MVP 加固基线。
 - [x] 编写轻量、非冗余的工程化设计。
-- [ ] 添加最小 lint/format 工具。
-- [ ] 文档化 `paper.yaml`、`conversion.json` 和 CLI JSON 输出契约。
-- [ ] 添加真实 MinerU 手动 smoke-test 清单。
+- [x] 添加最小 lint/format 工具。
+- [x] 文档化 `paper.yaml`、`conversion.json` 和 CLI JSON 输出契约。
+- [x] 添加真实 MinerU 手动 smoke-test 清单。
+- [x] 添加工程化里程碑 1 和 2 的实现计划。
 
 ## 验证记录
 
@@ -85,7 +86,7 @@
 - [ ] 在文件名无法推断、且 MinerU Markdown 没有显式 `Authors:` 行时，继续改进标题页作者直接抽取。
 - [ ] 为文件名解析得到的低置信度元数据打标记，让转换后元数据能更积极地覆盖它。
 - [x] 将新转换 bundle 的 MinerU 原始 sidecar 文件归一到专门 raw-output 目录。
-- [ ] 增加一个真实 MinerU smoke test 清单，方便手动测试但不提交用户 PDF。
+- [x] 增加一个真实 MinerU smoke test 清单，方便手动测试但不提交用户 PDF。
 
 ## 剩余决策
 
@@ -97,3 +98,4 @@
 ## 实现计划
 
 - `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`

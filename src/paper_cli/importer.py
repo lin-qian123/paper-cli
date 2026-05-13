@@ -30,7 +30,9 @@ def _existing_names(root: Path) -> set[str]:
     return {p.name for p in root.iterdir() if p.is_dir()}
 
 
-def import_pdf(library_dir: Path, pdf_path: Path, collection: str | None, inbox: bool = False) -> Path | None:
+def import_pdf(
+    library_dir: Path, pdf_path: Path, collection: str | None, inbox: bool = False
+) -> Path | None:
     pdf_path = pdf_path.resolve()
     paper_id = paper_id_for_file(pdf_path)
     if paper_id in existing_paper_ids(library_dir):
@@ -63,7 +65,9 @@ def import_pdf(library_dir: Path, pdf_path: Path, collection: str | None, inbox:
     return bundle_dir
 
 
-def import_path(library_dir: Path, input_path: Path, collection: str | None, inbox: bool = False) -> list[Path]:
+def import_path(
+    library_dir: Path, input_path: Path, collection: str | None, inbox: bool = False
+) -> list[Path]:
     imported: list[Path] = []
     for pdf in discover_pdfs(input_path):
         result = import_pdf(library_dir, pdf, collection=collection, inbox=inbox)

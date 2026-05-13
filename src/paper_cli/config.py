@@ -3,8 +3,7 @@ from typing import Any
 
 import yaml
 
-
-DEFAULT_NAMING_TEMPLATE = '''{{if language == "zh"}}
+DEFAULT_NAMING_TEMPLATE = """{{if language == "zh"}}
 {{ firstCreator suffix=" - " }}
 {{elseif language == "zh-CN"}}
 {{ firstCreator suffix=" - " }}
@@ -12,7 +11,7 @@ DEFAULT_NAMING_TEMPLATE = '''{{if language == "zh"}}
 {{creators max="1" suffix=" et al. - "}}
 {{ endif }}
 {{ year suffix=" - " }}
-{{ title truncate="100" }}'''
+{{ title truncate="100" }}"""
 
 
 def default_config() -> dict[str, Any]:

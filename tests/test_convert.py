@@ -1,8 +1,9 @@
-from paper_cli.converters.local_zip import LocalFixtureConverter
-from paper_cli.converters.mineru import MinerUConverter
-from paper_cli.cli import main
 import io
 import zipfile
+
+from paper_cli.cli import main
+from paper_cli.converters.local_zip import LocalFixtureConverter
+from paper_cli.converters.mineru import MinerUConverter
 
 
 class FakeResponse:
@@ -44,7 +45,10 @@ def test_convert_pending_writes_markdown_and_renames(tmp_path):
     (fixture / "images").mkdir()
     main(["init", str(library)])
     main(["--library", str(library), "import", str(pdf), "--inbox"])
-    assert main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)]) == 0
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
     renamed = library / "inbox" / "Zhang et al. - 2025 - Better Paper Title"
     assert (renamed / "paper.md").exists()
     assert (renamed / "conversion.json").exists()
@@ -67,9 +71,16 @@ def test_convert_pending_infers_creator_from_filename_title_prefix(tmp_path):
     main(["init", str(library)])
     main(["--library", str(library), "import", str(pdf), "--inbox"])
 
-    assert main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)]) == 0
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
 
-    renamed = library / "inbox" / "Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes"
+    renamed = (
+        library
+        / "inbox"
+        / "Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes"
+    )
     assert (renamed / "paper.yaml").exists()
 
 

@@ -1,5 +1,5 @@
-from paper_cli.models import PaperRecord, read_paper, write_paper
 from paper_cli.cli import main
+from paper_cli.models import PaperRecord, read_paper, write_paper
 
 
 def test_paper_yaml_round_trip(tmp_path):
@@ -18,10 +18,14 @@ def test_paper_yaml_round_trip(tmp_path):
 
 def test_import_pdf_copies_bundle(tmp_path):
     library = tmp_path / "library"
-    source = tmp_path / "Vallieres et al. - 2025 - High average-flux laser-driven neutron source.pdf"
+    source = (
+        tmp_path / "Vallieres et al. - 2025 - High average-flux laser-driven neutron source.pdf"
+    )
     source.write_bytes(b"%PDF-1.4\n%fake\n")
     assert main(["init", str(library)]) == 0
-    assert main(["--library", str(library), "import", str(source), "--collection", "plasma/lwfa"]) == 0
+    assert (
+        main(["--library", str(library), "import", str(source), "--collection", "plasma/lwfa"]) == 0
+    )
 
     bundle = (
         library

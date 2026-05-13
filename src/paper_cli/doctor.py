@@ -32,21 +32,39 @@ def run_doctor(library_dir: Path) -> list[Issue]:
             continue
 
         if record.id in seen_ids:
-            issues.append(Issue("duplicate-id", str(bundle_dir), f"Duplicate id also in {seen_ids[record.id]}"))
+            issues.append(
+                Issue(
+                    "duplicate-id", str(bundle_dir), f"Duplicate id also in {seen_ids[record.id]}"
+                )
+            )
         else:
             seen_ids[record.id] = bundle_dir
 
         if not (bundle_dir / "original.pdf").exists():
             issues.append(Issue("missing-original-pdf", str(bundle_dir), "Missing original.pdf"))
         if record.status.get("conversion") == "done" and not (bundle_dir / "paper.md").exists():
-            issues.append(Issue("missing-paper-md", str(bundle_dir), "Conversion is done but paper.md is missing"))
+            issues.append(
+                Issue(
+                    "missing-paper-md",
+                    str(bundle_dir),
+                    "Conversion is done but paper.md is missing",
+                )
+            )
 
     index_path = library_dir / "indexes" / "papers.jsonl"
     if index_path.exists():
-        indexed_count = len([line for line in index_path.read_text(encoding="utf-8").splitlines() if line.strip()])
+        indexed_count = len(
+            [line for line in index_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        )
         actual_count = len(find_paper_dirs(library_dir))
         if indexed_count != actual_count:
-            issues.append(Issue("stale-index", str(index_path), f"Index has {indexed_count}, actual {actual_count}"))
+            issues.append(
+                Issue(
+                    "stale-index",
+                    str(index_path),
+                    f"Index has {indexed_count}, actual {actual_count}",
+                )
+            )
     return issues
 
 

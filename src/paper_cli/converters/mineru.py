@@ -13,9 +13,13 @@ from .base import ConversionResult
 
 
 class MinerUConverter:
-    def __init__(self, api_key: str | None = None, api_base: str | None = None, poll_interval: float = 3.0):
+    def __init__(
+        self, api_key: str | None = None, api_base: str | None = None, poll_interval: float = 3.0
+    ):
         self.api_key = api_key or os.environ.get("MINERU_API_KEY")
-        self.api_base = (api_base or os.environ.get("MINERU_API_BASE") or "https://mineru.net/api/v4").rstrip("/")
+        self.api_base = (
+            api_base or os.environ.get("MINERU_API_BASE") or "https://mineru.net/api/v4"
+        ).rstrip("/")
         self.poll_interval = poll_interval
 
     @property
@@ -92,12 +96,16 @@ class MinerUConverter:
             shutil.move(str(markdown_files[0]), markdown_path)
 
         images_dir = output_dir / "images"
-        image_dirs = [path for path in output_dir.glob("**/images") if path.is_dir() and path != images_dir]
+        image_dirs = [
+            path for path in output_dir.glob("**/images") if path.is_dir() and path != images_dir
+        ]
         if image_dirs and not images_dir.exists():
             shutil.move(str(image_dirs[0]), images_dir)
         images_dir.mkdir(parents=True, exist_ok=True)
         self._move_raw_sidecars(output_dir, extracted_files)
-        return ConversionResult(ok=True, markdown_path=markdown_path, images_dir=images_dir, raw={"zip_url": zip_url})
+        return ConversionResult(
+            ok=True, markdown_path=markdown_path, images_dir=images_dir, raw={"zip_url": zip_url}
+        )
 
     def _move_raw_sidecars(self, output_dir: Path, extracted_files: list[Path]) -> None:
         raw_dir = output_dir / "raw" / "mineru"
@@ -114,7 +122,9 @@ class MinerUConverter:
             if target.exists():
                 target = raw_dir / "_".join(source.relative_to(output_dir).parts)
             shutil.move(str(source), str(target))
-        for directory in sorted(output_dir.glob("**/*"), key=lambda path: len(path.parts), reverse=True):
+        for directory in sorted(
+            output_dir.glob("**/*"), key=lambda path: len(path.parts), reverse=True
+        ):
             if directory == raw_dir or raw_dir in directory.parents:
                 continue
             if directory.is_dir() and directory != output_dir and not any(directory.iterdir()):
