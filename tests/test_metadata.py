@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from paper_cli.metadata import fast_metadata, metadata_from_filename
+from paper_cli.metadata import fast_metadata, fast_metadata_details, metadata_from_filename
 
 
 def test_parse_author_year_title_filename():
@@ -36,3 +36,25 @@ def test_invalid_pdf_metadata_does_not_emit_warning(tmp_path, caplog):
     meta = fast_metadata(pdf)
     assert meta["title"] == "invalid"
     assert "EOF marker" not in caplog.text
+
+
+def test_fast_metadata_details_marks_filename_confidence(tmp_path):
+    pdf = tmp_path / "A et al. - 2025 - Indexed Paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    meta, sources, confidence = fast_metadata_details(pdf)
+    assert meta["title"] == "Indexed Paper"
+    assert sources["title"] == "filename"
+    assert sources["creators"] == "filename"
+    assert sources["year"] == "filename"
+    assert confidence["title"] == "medium"
+    assert confidence["creators"] == "medium"
+    assert confidence["year"] == "medium"
+
+
+def test_fast_metadata_details_marks_stem_title_low_confidence(tmp_path):
+    pdf = tmp_path / "unknown-paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    meta, sources, confidence = fast_metadata_details(pdf)
+    assert meta["title"] == "unknown-paper"
+    assert sources["title"] == "filename-stem"
+    assert confidence["title"] == "low"

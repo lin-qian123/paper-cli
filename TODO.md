@@ -15,6 +15,8 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - [x] Expand `conversion.json` into a diagnostic record.
 - [x] Append conversion job events to `indexes/jobs.jsonl`.
 - [x] Preserve failed conversion diagnostics and retry failed bundles with incremented attempts.
+- [x] Add metadata source and confidence fields to `paper.yaml`.
+- [x] Merge conversion metadata by confidence to protect high-confidence fields.
 
 ## Validation Log
 
@@ -87,7 +89,7 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 
 - [x] Improve post-conversion author inference for `Journal - Year - Author - Title.pdf` filenames when MinerU provides the clean title.
 - [ ] Improve direct author extraction from MinerU Markdown title pages when no explicit `Authors:` line exists and filename inference is unavailable.
-- [ ] Mark low-confidence metadata from filename parsing so conversion-time metadata can override it more aggressively.
+- [x] Mark low-confidence metadata from filename parsing so conversion-time metadata can override it more aggressively.
 - [x] Normalize MinerU raw sidecar files into a dedicated raw-output directory for newly converted bundles.
 - [x] Add a real-MinerU smoke-test checklist that can be run manually without committing user PDFs.
 
@@ -103,3 +105,4 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`

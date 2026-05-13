@@ -8,12 +8,17 @@ def test_paper_yaml_round_trip(tmp_path):
         name="Example et al. - 2025 - Paper",
         collection="plasma/lwfa",
         imported_from="/tmp/source.pdf",
+        metadata={"title": "Paper", "creators": [{"name": "Example", "role": "author"}]},
+        metadata_sources={"title": "filename", "creators": "filename"},
+        metadata_confidence={"title": "medium", "creators": "medium"},
     )
     write_paper(tmp_path, record)
     loaded = read_paper(tmp_path)
     assert loaded.id == "sha256:abc"
     assert loaded.status["conversion"] == "pending"
     assert loaded.collection == "plasma/lwfa"
+    assert loaded.metadata_sources["title"] == "filename"
+    assert loaded.metadata_confidence["creators"] == "medium"
 
 
 def test_import_pdf_copies_bundle(tmp_path):
@@ -40,6 +45,18 @@ def test_import_pdf_copies_bundle(tmp_path):
     record = read_paper(bundle)
     assert record.id.startswith("sha256:")
     assert record.status["conversion"] == "pending"
+    assert record.metadata_sources == {
+        "title": "filename",
+        "creators": "filename",
+        "year": "filename",
+        "language": "detected",
+    }
+    assert record.metadata_confidence == {
+        "title": "medium",
+        "creators": "medium",
+        "year": "medium",
+        "language": "medium",
+    }
 
 
 def test_import_duplicate_pdf_skips_existing_bundle(tmp_path):

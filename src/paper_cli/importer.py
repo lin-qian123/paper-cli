@@ -5,7 +5,7 @@ from pathlib import Path
 from .config import load_config
 from .fs import collection_root, copy_file, discover_pdfs, sha256_file
 from .indexes import rebuild_papers_index
-from .metadata import fast_metadata
+from .metadata import fast_metadata_details
 from .models import PaperRecord, read_paper, write_paper
 from .naming import render_name, resolve_duplicate_name, sanitize_name
 
@@ -39,7 +39,7 @@ def import_pdf(
         return None
 
     config = load_config(library_dir)
-    metadata = fast_metadata(pdf_path)
+    metadata, metadata_sources, metadata_confidence = fast_metadata_details(pdf_path)
     template = config.get("naming", {}).get("template", "")
     name = sanitize_name(render_name(template, metadata) or pdf_path.stem)
 
@@ -60,6 +60,8 @@ def import_pdf(
         collection=None if inbox else collection,
         imported_from=str(pdf_path),
         metadata=metadata,
+        metadata_sources=metadata_sources,
+        metadata_confidence=metadata_confidence,
     )
     write_paper(bundle_dir, record)
     return bundle_dir

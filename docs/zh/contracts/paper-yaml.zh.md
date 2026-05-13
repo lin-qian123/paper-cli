@@ -27,6 +27,16 @@ metadata:
   year: 2026
   language: en
   doi: null
+metadata_sources:
+  title: mineru
+  creators: filename-title-prefix
+  year: filename
+  language: detected
+metadata_confidence:
+  title: high
+  creators: medium
+  year: medium
+  language: medium
 source:
   type: local-folder
   imported_from: /absolute/source.pdf
@@ -55,6 +65,8 @@ naming:
 - `previous_names`：自动重命名前的历史目录名。
 - `collection`：相对 `collections/` 的分类路径；inbox 论文为 `null`。
 - `metadata`：当前最佳文献元数据。
+- `metadata_sources`：每个元数据字段的来源标签。
+- `metadata_confidence`：每个元数据字段的置信度标签。
 - `source`：导入来源信息。
 - `status`：导入、转换、元数据和命名的工作流状态。
 - `naming`：命名模板相关记录。
@@ -72,9 +84,29 @@ naming:
 
 如果 `name_locked` 为 `true`，不能自动重命名；当更好元数据本应触发重命名时，命名状态应进入 `review`。
 
-## 计划中的兼容扩展
+## 元数据 Provenance
 
-下一步 schema 应增加来源和置信度字段，但不移除当前字段：
+`metadata_sources` 和 `metadata_confidence` 用于帮助转换器和后续 adapter 合并元数据，避免不安全覆盖。
+
+当前来源标签包括：
+
+- `filename`
+- `filename-stem`
+- `filename-title-prefix`
+- `pdf-metadata`
+- `mineru`
+- `detected`
+- `user`
+
+当前置信度标签包括：
+
+- `low`
+- `medium`
+- `high`
+
+转换阶段只有在新置信度等级大于或等于旧置信度等级时，才会覆盖已有字段。这样可以避免高置信度的用户修正或 adapter 元数据被较弱的文件名推断覆盖。
+
+示例：
 
 ```yaml
 metadata_sources:

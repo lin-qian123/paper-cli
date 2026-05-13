@@ -14,6 +14,12 @@ from .naming import render_name, resolve_duplicate_name, sanitize_name
 
 
 def extract_metadata_from_markdown(markdown: str) -> dict:
+    return extract_metadata_details_from_markdown(markdown)[0]
+
+
+def extract_metadata_details_from_markdown(
+    markdown: str,
+) -> tuple[dict, dict[str, str], dict[str, str]]:
     title = None
     creator = None
     year = None
@@ -29,15 +35,25 @@ def extract_metadata_from_markdown(markdown: str) -> dict:
             if match:
                 year = int(match.group(0))
     metadata: dict = {}
+    sources: dict[str, str] = {}
+    confidence: dict[str, str] = {}
     if title:
         metadata["title"] = title
+        sources["title"] = "mineru"
+        confidence["title"] = "high"
     if creator:
         metadata["creators"] = [{"name": creator, "role": "author"}]
+        sources["creators"] = "mineru"
+        confidence["creators"] = "high"
     if year:
         metadata["year"] = year
+        sources["year"] = "mineru"
+        confidence["year"] = "high"
     if title or creator:
         metadata["language"] = detect_language(f"{title or ''} {creator or ''}")
-    return metadata
+        sources["language"] = "detected"
+        confidence["language"] = "medium"
+    return metadata, sources, confidence
 
 
 def _normalize_title_for_match(value: str) -> str:
@@ -63,18 +79,54 @@ def infer_creator_from_title_prefix(
     return prefix
 
 
-def _merge_metadata(existing: dict, update: dict) -> dict:
+CONFIDENCE_RANK = {
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+}
+
+
+def _confidence_rank(value: str | None) -> int:
+    return CONFIDENCE_RANK.get(value or "", 0)
+
+
+def _should_update(existing_confidence: str | None, update_confidence: str | None) -> bool:
+    return _confidence_rank(update_confidence) >= _confidence_rank(existing_confidence)
+
+
+def _merge_metadata(
+    existing: dict,
+    existing_sources: dict[str, str],
+    existing_confidence: dict[str, str],
+    update: dict,
+    update_sources: dict[str, str],
+    update_confidence: dict[str, str],
+) -> tuple[dict, dict[str, str], dict[str, str]]:
     merged = dict(existing)
+    merged_sources = dict(existing_sources)
+    merged_confidence = dict(existing_confidence)
     inferred_creator = infer_creator_from_title_prefix(
         str(existing.get("title") or ""),
         str(update.get("title") or ""),
     )
-    for key, value in update.items():
-        if value not in (None, "", []):
-            merged[key] = value
     if inferred_creator and not update.get("creators"):
-        merged["creators"] = [{"name": inferred_creator, "role": "author"}]
-    return merged
+        update = dict(update)
+        update["creators"] = [{"name": inferred_creator, "role": "author"}]
+        update_sources = dict(update_sources)
+        update_sources["creators"] = "filename-title-prefix"
+        update_confidence = dict(update_confidence)
+        update_confidence["creators"] = "medium"
+
+    for key, value in update.items():
+        if value in (None, "", []):
+            continue
+        if _should_update(merged_confidence.get(key), update_confidence.get(key)):
+            merged[key] = value
+            if key in update_sources:
+                merged_sources[key] = update_sources[key]
+            if key in update_confidence:
+                merged_confidence[key] = update_confidence[key]
+    return merged, merged_sources, merged_confidence
 
 
 def maybe_rename_bundle(library_dir: Path, bundle_dir: Path, record: PaperRecord) -> Path:
@@ -243,8 +295,21 @@ def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
             continue
 
         markdown_path = result.markdown_path or (bundle_dir / "paper.md")
-        metadata_update = extract_metadata_from_markdown(markdown_path.read_text(encoding="utf-8"))
-        record.metadata = _merge_metadata(record.metadata, metadata_update)
+        metadata_update, update_sources, update_confidence = extract_metadata_details_from_markdown(
+            markdown_path.read_text(encoding="utf-8")
+        )
+        (
+            record.metadata,
+            record.metadata_sources,
+            record.metadata_confidence,
+        ) = _merge_metadata(
+            record.metadata,
+            record.metadata_sources,
+            record.metadata_confidence,
+            metadata_update,
+            update_sources,
+            update_confidence,
+        )
         record.status["conversion"] = "done"
         record.status["metadata"] = "complete" if record.metadata.get("title") else "partial"
         record.status["naming"] = "metadata"

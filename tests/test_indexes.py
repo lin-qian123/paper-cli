@@ -15,3 +15,5 @@ def test_import_updates_papers_index(tmp_path):
     assert row["name"] == "A et al. - 2025 - Indexed Paper"
     assert row["status"]["conversion"] == "pending"
     assert row["collection"] is None
+    assert row["metadata_sources"]["title"] == "filename"
+    assert row["metadata_confidence"]["title"] == "medium"

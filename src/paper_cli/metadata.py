@@ -49,6 +49,27 @@ def metadata_from_filename(path: Path) -> dict[str, Any]:
     }
 
 
+def filename_metadata_details(path: Path) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
+    metadata = metadata_from_filename(path)
+    stem = path.stem.strip()
+    matched = YEAR_PATTERN.match(stem) is not None
+    sources: dict[str, str] = {}
+    confidence: dict[str, str] = {}
+    if metadata.get("title"):
+        sources["title"] = "filename" if matched else "filename-stem"
+        confidence["title"] = "medium" if matched else "low"
+    if metadata.get("creators"):
+        sources["creators"] = "filename"
+        confidence["creators"] = "medium"
+    if metadata.get("year"):
+        sources["year"] = "filename"
+        confidence["year"] = "medium"
+    if metadata.get("language"):
+        sources["language"] = "detected"
+        confidence["language"] = "medium"
+    return metadata, sources, confidence
+
+
 def metadata_from_pdf(path: Path) -> dict[str, Any]:
     try:
         reader = PdfReader(str(path))
@@ -64,14 +85,38 @@ def metadata_from_pdf(path: Path) -> dict[str, Any]:
     return metadata
 
 
+def pdf_metadata_details(path: Path) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
+    metadata = metadata_from_pdf(path)
+    sources: dict[str, str] = {}
+    confidence: dict[str, str] = {}
+    if metadata.get("title"):
+        sources["title"] = "pdf-metadata"
+        confidence["title"] = "medium"
+    if metadata.get("creators"):
+        sources["creators"] = "pdf-metadata"
+        confidence["creators"] = "medium"
+    if metadata.get("language"):
+        sources["language"] = "detected"
+        confidence["language"] = "medium"
+    return metadata, sources, confidence
+
+
 def fast_metadata(path: Path) -> dict[str, Any]:
-    file_meta = metadata_from_filename(path)
-    pdf_meta = metadata_from_pdf(path)
+    return fast_metadata_details(path)[0]
+
+
+def fast_metadata_details(path: Path) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
+    file_meta, sources, confidence = filename_metadata_details(path)
+    pdf_meta, pdf_sources, pdf_confidence = pdf_metadata_details(path)
     merged = dict(file_meta)
     if pdf_meta.get("title") and not file_meta.get("title"):
         merged["title"] = pdf_meta["title"]
+        sources["title"] = pdf_sources["title"]
+        confidence["title"] = pdf_confidence["title"]
     if pdf_meta.get("creators") and not file_meta.get("creators"):
         merged["creators"] = pdf_meta["creators"]
+        sources["creators"] = pdf_sources["creators"]
+        confidence["creators"] = pdf_confidence["creators"]
     merged["language"] = detect_language(
         " ".join(
             [
@@ -80,4 +125,6 @@ def fast_metadata(path: Path) -> dict[str, Any]:
             ]
         )
     )
-    return merged
+    sources["language"] = "detected"
+    confidence["language"] = "medium"
+    return merged, sources, confidence

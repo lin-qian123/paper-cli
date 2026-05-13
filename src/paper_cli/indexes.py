@@ -27,6 +27,8 @@ def _paper_row(library_dir: Path, bundle_dir: Path) -> dict[str, Any]:
         "creators": record.metadata.get("creators", []),
         "year": record.metadata.get("year"),
         "language": record.metadata.get("language"),
+        "metadata_sources": record.metadata_sources,
+        "metadata_confidence": record.metadata_confidence,
         "status": record.status,
     }
 

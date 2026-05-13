@@ -27,6 +27,16 @@ metadata:
   year: 2026
   language: en
   doi: null
+metadata_sources:
+  title: mineru
+  creators: filename-title-prefix
+  year: filename
+  language: detected
+metadata_confidence:
+  title: high
+  creators: medium
+  year: medium
+  language: medium
 source:
   type: local-folder
   imported_from: /absolute/source.pdf
@@ -55,6 +65,8 @@ naming:
 - `previous_names`: prior bundle names after automatic renames.
 - `collection`: collection path relative to `collections/`, or `null` for inbox papers.
 - `metadata`: current best-known bibliographic metadata.
+- `metadata_sources`: source label for each metadata field.
+- `metadata_confidence`: confidence label for each metadata field.
 - `source`: import source information.
 - `status`: workflow state summary for import, conversion, metadata, and naming.
 - `naming`: naming-template bookkeeping.
@@ -74,9 +86,29 @@ After conversion, `paper-cli` may extract better metadata and rename the whole b
 
 If `name_locked` is `true`, the bundle must not be renamed automatically. The naming status should move to `review` when better metadata would otherwise trigger a rename.
 
-## Planned Compatible Extensions
+## Metadata Provenance
 
-The next schema refinement should add provenance and confidence without removing current fields:
+`metadata_sources` and `metadata_confidence` help converters and future adapters merge metadata without unsafe overwrites.
+
+Current source labels include:
+
+- `filename`
+- `filename-stem`
+- `filename-title-prefix`
+- `pdf-metadata`
+- `mineru`
+- `detected`
+- `user`
+
+Current confidence labels are:
+
+- `low`
+- `medium`
+- `high`
+
+Conversion-time metadata can overwrite an existing field only when the new confidence rank is greater than or equal to the existing confidence rank. This keeps high-confidence user or adapter metadata from being replaced by weaker filename inference.
+
+Example:
 
 ```yaml
 metadata_sources:

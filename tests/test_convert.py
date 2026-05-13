@@ -5,6 +5,7 @@ import zipfile
 from paper_cli.cli import main
 from paper_cli.converters.local_zip import LocalFixtureConverter
 from paper_cli.converters.mineru import MinerUConverter
+from paper_cli.models import read_paper, write_paper
 
 
 class FakeResponse:
@@ -184,6 +185,71 @@ def test_convert_pending_infers_creator_from_filename_title_prefix(tmp_path):
         / "Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes"
     )
     assert (renamed / "paper.yaml").exists()
+
+
+def test_convert_pending_records_metadata_provenance(tmp_path):
+    library = tmp_path / "library"
+    pdf = (
+        tmp_path
+        / "Advanced Science - 2026 - Guo - Helical Electron Beam Micro‐Bunching by High‐Order Modes.pdf"
+    )
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text(
+        "# Helical Electron Beam Micro-Bunching by High-Order Modes\n",
+        encoding="utf-8",
+    )
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    bundle = (
+        library
+        / "inbox"
+        / "Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes"
+    )
+    record = read_paper(bundle)
+    assert record.metadata_sources["title"] == "mineru"
+    assert record.metadata_confidence["title"] == "high"
+    assert record.metadata_sources["creators"] == "filename-title-prefix"
+    assert record.metadata_confidence["creators"] == "medium"
+    assert record.metadata_sources["year"] == "filename"
+    assert record.metadata_confidence["year"] == "medium"
+
+
+def test_convert_pending_does_not_overwrite_high_confidence_creator(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Journal - 2026 - Guo - Better Title.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text("# Better Title\n", encoding="utf-8")
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+    bundle = library / "inbox" / "Journal et al. - 2026 - Guo - Better Title"
+    record = read_paper(bundle)
+    record.metadata["creators"] = [{"name": "Correct Author", "role": "author"}]
+    record.metadata_sources["creators"] = "user"
+    record.metadata_confidence["creators"] = "high"
+    write_paper(bundle, record)
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    renamed = library / "inbox" / "Correct Author et al. - 2026 - Better Title"
+    converted = read_paper(renamed)
+    assert converted.metadata["creators"] == [{"name": "Correct Author", "role": "author"}]
+    assert converted.metadata_sources["creators"] == "user"
+    assert converted.metadata_confidence["creators"] == "high"
 
 
 def test_mineru_converter_fails_without_api_key(tmp_path, monkeypatch):

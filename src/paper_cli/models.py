@@ -18,6 +18,8 @@ class PaperRecord:
     name: str
     collection: str | None
     metadata: dict[str, Any] = field(default_factory=dict)
+    metadata_sources: dict[str, str] = field(default_factory=dict)
+    metadata_confidence: dict[str, str] = field(default_factory=dict)
     source: dict[str, Any] = field(default_factory=dict)
     status: dict[str, str] = field(default_factory=dict)
     naming: dict[str, Any] = field(default_factory=dict)
@@ -33,6 +35,8 @@ class PaperRecord:
         collection: str | None,
         imported_from: str,
         metadata: dict[str, Any] | None = None,
+        metadata_sources: dict[str, str] | None = None,
+        metadata_confidence: dict[str, str] | None = None,
     ) -> "PaperRecord":
         return cls(
             id=paper_id,
@@ -46,6 +50,8 @@ class PaperRecord:
                 "language": "en",
                 "doi": None,
             },
+            metadata_sources=metadata_sources or {},
+            metadata_confidence=metadata_confidence or {},
             source={
                 "type": "local-folder",
                 "imported_from": imported_from,
@@ -75,6 +81,8 @@ class PaperRecord:
             previous_names=list(data.get("previous_names") or []),
             collection=data.get("collection"),
             metadata=dict(data.get("metadata") or {}),
+            metadata_sources=dict(data.get("metadata_sources") or {}),
+            metadata_confidence=dict(data.get("metadata_confidence") or {}),
             source=dict(data.get("source") or {}),
             status=dict(data.get("status") or {}),
             naming=dict(data.get("naming") or {}),
@@ -89,6 +97,8 @@ class PaperRecord:
             "previous_names": self.previous_names,
             "collection": self.collection,
             "metadata": self.metadata,
+            "metadata_sources": self.metadata_sources,
+            "metadata_confidence": self.metadata_confidence,
             "source": self.source,
             "status": self.status,
             "naming": self.naming,

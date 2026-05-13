@@ -15,6 +15,8 @@
 - [x] 将 `conversion.json` 扩展为诊断记录。
 - [x] 将转换任务事件追加到 `indexes/jobs.jsonl`。
 - [x] 保留失败转换诊断，并在重试失败 bundle 时递增 attempt。
+- [x] 在 `paper.yaml` 中增加元数据来源和置信度字段。
+- [x] 按置信度合并转换元数据，保护高置信度字段。
 
 ## 验证记录
 
@@ -87,7 +89,7 @@
 
 - [x] 改进 `Journal - Year - Author - Title.pdf` 文件名在 MinerU 给出干净标题时的转换后作者推断。
 - [ ] 在文件名无法推断、且 MinerU Markdown 没有显式 `Authors:` 行时，继续改进标题页作者直接抽取。
-- [ ] 为文件名解析得到的低置信度元数据打标记，让转换后元数据能更积极地覆盖它。
+- [x] 为文件名解析得到的低置信度元数据打标记，让转换后元数据能更积极地覆盖它。
 - [x] 将新转换 bundle 的 MinerU 原始 sidecar 文件归一到专门 raw-output 目录。
 - [x] 增加一个真实 MinerU smoke test 清单，方便手动测试但不提交用户 PDF。
 
@@ -103,3 +105,4 @@
 - `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
