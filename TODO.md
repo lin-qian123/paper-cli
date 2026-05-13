@@ -12,6 +12,9 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - [x] Document `paper.yaml`, `conversion.json`, and CLI JSON output contracts.
 - [x] Add a manual real-MinerU smoke-test checklist.
 - [x] Add implementation plan for engineering milestones 1 and 2.
+- [x] Expand `conversion.json` into a diagnostic record.
+- [x] Append conversion job events to `indexes/jobs.jsonl`.
+- [x] Preserve failed conversion diagnostics and retry failed bundles with incremented attempts.
 
 ## Validation Log
 
@@ -99,3 +102,4 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 
 - `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`

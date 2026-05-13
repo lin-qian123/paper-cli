@@ -15,5 +15,7 @@ class ConversionResult:
 
 
 class Converter(Protocol):
+    name: str
+
     def convert(self, source_pdf: Path, output_dir: Path) -> ConversionResult:
         raise NotImplementedError

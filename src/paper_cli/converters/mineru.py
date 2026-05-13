@@ -13,6 +13,8 @@ from .base import ConversionResult
 
 
 class MinerUConverter:
+    name = "mineru"
+
     def __init__(
         self, api_key: str | None = None, api_base: str | None = None, poll_interval: float = 3.0
     ):

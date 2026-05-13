@@ -7,6 +7,8 @@ from .base import ConversionResult
 
 
 class LocalFixtureConverter:
+    name = "local-fixture"
+
     def __init__(self, fixture_dir: Path):
         self.fixture_dir = fixture_dir
 

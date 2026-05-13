@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .config import load_config
 from .converters.base import Converter
-from .indexes import find_paper_dirs, rebuild_papers_index
+from .indexes import append_job, find_paper_dirs, rebuild_papers_index
 from .metadata import detect_language
 from .models import PaperRecord, read_paper, utc_now_iso, write_paper
 from .naming import render_name, resolve_duplicate_name, sanitize_name
@@ -105,11 +105,55 @@ def maybe_rename_bundle(library_dir: Path, bundle_dir: Path, record: PaperRecord
     return target
 
 
-def _write_conversion_json(bundle_dir: Path, ok: bool, error: str | None = None) -> None:
+def _read_previous_attempt(bundle_dir: Path) -> int:
+    path = bundle_dir / "conversion.json"
+    if not path.exists():
+        return 0
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return 0
+    return int(payload.get("attempt") or 0)
+
+
+def _converter_name(converter: Converter) -> str:
+    return getattr(converter, "name", converter.__class__.__name__)
+
+
+def _relative_output_path(bundle_dir: Path, path: Path | None, fallback: str) -> str | None:
+    if path is None:
+        return fallback
+    try:
+        return str(path.relative_to(bundle_dir))
+    except ValueError:
+        return str(path)
+
+
+def _write_conversion_json(
+    bundle_dir: Path,
+    *,
+    converter_name: str,
+    attempt: int,
+    submitted_at: str,
+    ok: bool,
+    state: str,
+    error: str | None = None,
+    markdown_path: Path | None = None,
+    images_dir: Path | None = None,
+    raw_output_dir: str | None = None,
+) -> None:
     payload = {
+        "schema_version": 1,
+        "converter": converter_name,
         "ok": ok,
+        "state": state,
+        "attempt": attempt,
+        "submitted_at": submitted_at,
         "converted_at": utc_now_iso(),
         "error": error,
+        "raw_output_dir": raw_output_dir,
+        "markdown": _relative_output_path(bundle_dir, markdown_path, "paper.md"),
+        "images": _relative_output_path(bundle_dir, images_dir, "images"),
     }
     (bundle_dir / "conversion.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -117,17 +161,85 @@ def _write_conversion_json(bundle_dir: Path, ok: bool, error: str | None = None)
     )
 
 
+def _bundle_relative(library_dir: Path, bundle_dir: Path) -> str:
+    try:
+        return str(bundle_dir.relative_to(library_dir))
+    except ValueError:
+        return str(bundle_dir)
+
+
+def _append_conversion_job(
+    library_dir: Path,
+    bundle_dir: Path,
+    record: PaperRecord,
+    *,
+    event: str,
+    converter_name: str,
+    attempt: int,
+    state: str,
+    ok: bool | None = None,
+    error: str | None = None,
+) -> None:
+    payload = {
+        "event": event,
+        "at": utc_now_iso(),
+        "paper_id": record.id,
+        "bundle_path": _bundle_relative(library_dir, bundle_dir),
+        "converter": converter_name,
+        "attempt": attempt,
+        "state": state,
+    }
+    if ok is not None:
+        payload["ok"] = ok
+    if error:
+        payload["error"] = error
+    append_job(library_dir, payload)
+
+
 def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
     converted: list[Path] = []
+    converter_name = _converter_name(converter)
     for bundle_dir in find_paper_dirs(library_dir):
         record = read_paper(bundle_dir)
         if record.status.get("conversion") == "done":
             continue
+        attempt = _read_previous_attempt(bundle_dir) + 1
+        submitted_at = utc_now_iso()
+        _append_conversion_job(
+            library_dir,
+            bundle_dir,
+            record,
+            event="conversion-started",
+            converter_name=converter_name,
+            attempt=attempt,
+            state="running",
+        )
         result = converter.convert(bundle_dir / "original.pdf", bundle_dir)
         if not result.ok:
             record.status["conversion"] = "failed"
             write_paper(bundle_dir, record)
-            _write_conversion_json(bundle_dir, ok=False, error=result.error)
+            _write_conversion_json(
+                bundle_dir,
+                converter_name=converter_name,
+                attempt=attempt,
+                submitted_at=submitted_at,
+                ok=False,
+                state="failed",
+                error=result.error,
+                markdown_path=result.markdown_path,
+                images_dir=result.images_dir,
+            )
+            _append_conversion_job(
+                library_dir,
+                bundle_dir,
+                record,
+                event="conversion-finished",
+                converter_name=converter_name,
+                attempt=attempt,
+                state="failed",
+                ok=False,
+                error=result.error,
+            )
             continue
 
         markdown_path = result.markdown_path or (bundle_dir / "paper.md")
@@ -137,7 +249,28 @@ def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
         record.status["metadata"] = "complete" if record.metadata.get("title") else "partial"
         record.status["naming"] = "metadata"
         write_paper(bundle_dir, record)
-        _write_conversion_json(bundle_dir, ok=True)
-        converted.append(maybe_rename_bundle(library_dir, bundle_dir, record))
+        _write_conversion_json(
+            bundle_dir,
+            converter_name=converter_name,
+            attempt=attempt,
+            submitted_at=submitted_at,
+            ok=True,
+            state="done",
+            markdown_path=markdown_path,
+            images_dir=result.images_dir or (bundle_dir / "images"),
+            raw_output_dir="raw/mineru" if converter_name == "mineru" else None,
+        )
+        renamed_bundle = maybe_rename_bundle(library_dir, bundle_dir, record)
+        _append_conversion_job(
+            library_dir,
+            renamed_bundle,
+            record,
+            event="conversion-finished",
+            converter_name=converter_name,
+            attempt=attempt,
+            state="done",
+            ok=True,
+        )
+        converted.append(renamed_bundle)
     rebuild_papers_index(library_dir)
     return converted

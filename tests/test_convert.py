@@ -1,4 +1,5 @@
 import io
+import json
 import zipfile
 
 from paper_cli.cli import main
@@ -52,6 +53,107 @@ def test_convert_pending_writes_markdown_and_renames(tmp_path):
     renamed = library / "inbox" / "Zhang et al. - 2025 - Better Paper Title"
     assert (renamed / "paper.md").exists()
     assert (renamed / "conversion.json").exists()
+
+
+def test_convert_pending_writes_diagnostic_conversion_json(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text("# Better Paper Title\n", encoding="utf-8")
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    bundle = library / "inbox" / "Better Paper Title"
+    payload = json.loads((bundle / "conversion.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 1
+    assert payload["converter"] == "local-fixture"
+    assert payload["ok"] is True
+    assert payload["state"] == "done"
+    assert payload["attempt"] == 1
+    assert payload["submitted_at"]
+    assert payload["converted_at"]
+    assert payload["error"] is None
+    assert payload["raw_output_dir"] is None
+    assert payload["markdown"] == "paper.md"
+    assert payload["images"] == "images"
+
+
+def test_convert_pending_appends_job_history(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text("# Better Paper Title\n", encoding="utf-8")
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    events = [
+        json.loads(line)
+        for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["event"] for event in events] == ["conversion-started", "conversion-finished"]
+    assert events[0]["paper_id"].startswith("sha256:")
+    assert events[0]["converter"] == "local-fixture"
+    assert events[0]["attempt"] == 1
+    assert events[0]["state"] == "running"
+    assert events[1]["state"] == "done"
+    assert events[1]["ok"] is True
+    assert events[1]["bundle_path"] == "inbox/Better Paper Title"
+
+
+def test_convert_pending_records_failure_and_retries_failed_bundle(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    failed_bundle = library / "inbox" / "Unknown"
+    failed_payload = json.loads((failed_bundle / "conversion.json").read_text(encoding="utf-8"))
+    assert failed_payload["ok"] is False
+    assert failed_payload["state"] == "failed"
+    assert failed_payload["attempt"] == 1
+    assert "Missing fixture markdown" in failed_payload["error"]
+
+    (fixture / "paper.md").write_text("# Recovered Title\n", encoding="utf-8")
+    (fixture / "images").mkdir()
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    recovered_bundle = library / "inbox" / "Recovered Title"
+    recovered_payload = json.loads((recovered_bundle / "conversion.json").read_text(encoding="utf-8"))
+    assert recovered_payload["ok"] is True
+    assert recovered_payload["state"] == "done"
+    assert recovered_payload["attempt"] == 2
+    events = [
+        json.loads(line)
+        for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["state"] for event in events] == ["running", "failed", "running", "done"]
 
 
 def test_convert_pending_infers_creator_from_filename_title_prefix(tmp_path):

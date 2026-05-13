@@ -12,6 +12,9 @@
 - [x] 文档化 `paper.yaml`、`conversion.json` 和 CLI JSON 输出契约。
 - [x] 添加真实 MinerU 手动 smoke-test 清单。
 - [x] 添加工程化里程碑 1 和 2 的实现计划。
+- [x] 将 `conversion.json` 扩展为诊断记录。
+- [x] 将转换任务事件追加到 `indexes/jobs.jsonl`。
+- [x] 保留失败转换诊断，并在重试失败 bundle 时递增 attempt。
 
 ## 验证记录
 
@@ -99,3 +102,4 @@
 
 - `.agents/superpowers/specs/2026-05-13-paper-cli-mvp-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
