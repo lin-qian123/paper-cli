@@ -36,6 +36,12 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
   - Added MinerU sidecar normalization into `raw/mineru/` for mocked ZIP outputs.
   - Replayed the desktop PDF through the existing MinerU output as a fixture; the bundle now renames to `Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes in a Micro-Plasma Waveguide`.
   - Re-ran real MinerU conversion inside `paper-libraries/desktop-live-test`; `paper status` and `paper doctor` passed, the bundle used `Guo et al.` naming, and MinerU sidecars were stored under `raw/mineru/`.
+- 2026-05-13 provenance smoke test:
+  - Re-ran real MinerU conversion inside `paper-libraries/provenance-live-test` after adding metadata provenance and conversion job diagnostics.
+  - `paper status` reported `converted=1`, `failed=0`, `pending=0`; `paper doctor` reported no issues.
+  - `paper.yaml` included `metadata_sources` and `metadata_confidence`: title from `mineru` with `high`, creators from `filename-title-prefix` with `medium`, year from `filename` with `medium`.
+  - `conversion.json` used diagnostic schema version 1 with `converter=mineru`, `state=done`, `attempt=1`, `raw_output_dir=raw/mineru`, `markdown=paper.md`, and `images=images`.
+  - `indexes/jobs.jsonl` recorded `conversion-started` and `conversion-finished` events.
 
 ## Approved MVP
 

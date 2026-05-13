@@ -36,6 +36,12 @@
   - 增加 MinerU sidecar 归一化：mock ZIP 输出中的原始文件会移动到 `raw/mineru/`。
   - 使用已有 MinerU 输出作为 fixture 重放桌面 PDF，bundle 现在会重命名为 `Guo et al. - 2026 - Helical Electron Beam Micro-Bunching by High-Order Modes in a Micro-Plasma Waveguide`。
   - 在 `paper-libraries/desktop-live-test` 中重新跑真实 MinerU 转换；`paper status` 和 `paper doctor` 均通过，bundle 使用 `Guo et al.` 命名，MinerU sidecar 已放入 `raw/mineru/`。
+- 2026-05-13 provenance smoke test：
+  - 增加 metadata provenance 和 conversion job diagnostics 后，在 `paper-libraries/provenance-live-test` 中重新跑真实 MinerU 转换。
+  - `paper status` 返回 `converted=1`、`failed=0`、`pending=0`；`paper doctor` 未报告问题。
+  - `paper.yaml` 包含 `metadata_sources` 和 `metadata_confidence`：title 来自 `mineru` 且为 `high`，creators 来自 `filename-title-prefix` 且为 `medium`，year 来自 `filename` 且为 `medium`。
+  - `conversion.json` 使用 schema version 1 诊断格式，包含 `converter=mineru`、`state=done`、`attempt=1`、`raw_output_dir=raw/mineru`、`markdown=paper.md`、`images=images`。
+  - `indexes/jobs.jsonl` 记录了 `conversion-started` 和 `conversion-finished` 事件。
 
 ## 已确认 MVP
 
