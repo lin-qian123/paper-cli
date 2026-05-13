@@ -131,6 +131,6 @@ MVP：
 
 ## 开发说明
 
-当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)。
+当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。
 
 本地测试文献库可以放在 `paper-libraries/` 下。该目录已被 git 忽略，因为里面可能包含复制后的 PDF 和 MinerU 输出。

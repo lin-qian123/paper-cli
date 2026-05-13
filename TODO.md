@@ -2,7 +2,15 @@
 
 ## Current Phase
 
-Local-folder MVP implemented and covered by tests. Next work should focus on real-paper validation, robustness fixes, and phase-2 adapter planning.
+Local-folder MVP implemented and covered by tests. Engineering work should first stabilize contracts and tooling without adding unnecessary platform complexity.
+
+## Engineering Phase
+
+- [x] Commit the verified MVP hardening baseline.
+- [x] Write engineering design for a lightweight, non-redundant project foundation.
+- [ ] Add minimal lint/format tooling.
+- [ ] Document `paper.yaml`, `conversion.json`, and CLI JSON output contracts.
+- [ ] Add a manual real-MinerU smoke-test checklist.
 
 ## Validation Log
 

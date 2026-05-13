@@ -10,4 +10,4 @@
 - [README.zh.md](README.zh.md)：项目介绍、当前状态和计划命令。
 - [TODO.zh.md](TODO.zh.md)：待办事项、阶段状态和后续计划。
 - [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)：MVP 设计说明。
-
+- [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)：工程化设计说明。
