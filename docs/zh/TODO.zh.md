@@ -17,6 +17,7 @@
 - [x] 保留失败转换诊断，并在重试失败 bundle 时递增 attempt。
 - [x] 在 `paper.yaml` 中增加元数据来源和置信度字段。
 - [x] 按置信度合并转换元数据，保护高置信度字段。
+- [x] 定义 source adapter 接口，并将本地文件夹导入作为参考 adapter。
 
 ## 验证记录
 
@@ -106,3 +107,4 @@
 - `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-source-adapters-implementation.md`

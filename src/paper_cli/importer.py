@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .adapters.local_folder import LocalFolderAdapter
 from .config import load_config
-from .fs import collection_root, copy_file, discover_pdfs, sha256_file
+from .fs import collection_root, copy_file, sha256_file
 from .indexes import rebuild_papers_index
 from .metadata import fast_metadata_details
 from .models import PaperRecord, read_paper, write_paper
@@ -70,10 +71,11 @@ def import_pdf(
 def import_path(
     library_dir: Path, input_path: Path, collection: str | None, inbox: bool = False
 ) -> list[Path]:
-    imported: list[Path] = []
-    for pdf in discover_pdfs(input_path):
-        result = import_pdf(library_dir, pdf, collection=collection, inbox=inbox)
-        if result is not None:
-            imported.append(result)
+    result = LocalFolderAdapter().import_source(
+        library_dir,
+        input_path,
+        collection=collection,
+        inbox=inbox,
+    )
     rebuild_papers_index(library_dir)
-    return imported
+    return result.imported

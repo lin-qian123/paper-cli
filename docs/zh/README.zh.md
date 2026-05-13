@@ -144,6 +144,7 @@ MVP：
 - [paper-yaml.zh.md](contracts/paper-yaml.zh.md)
 - [conversion-json.zh.md](contracts/conversion-json.zh.md)
 - [cli-json.zh.md](contracts/cli-json.zh.md)
+- [source-adapters.zh.md](contracts/source-adapters.zh.md)
 - [mineru.zh.md](smoke-tests/mineru.zh.md)
 
 本地测试文献库可以放在 `paper-libraries/` 下。该目录已被 git 忽略，因为里面可能包含复制后的 PDF 和 MinerU 输出。

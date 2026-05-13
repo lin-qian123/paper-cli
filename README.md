@@ -144,6 +144,7 @@ Contract docs:
 - `docs/contracts/paper-yaml.md`
 - `docs/contracts/conversion-json.md`
 - `docs/contracts/cli-json.md`
+- `docs/contracts/source-adapters.md`
 - `docs/smoke-tests/mineru.md`
 
 Chinese documentation is available under `docs/zh/`.

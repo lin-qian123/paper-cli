@@ -17,6 +17,7 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - [x] Preserve failed conversion diagnostics and retry failed bundles with incremented attempts.
 - [x] Add metadata source and confidence fields to `paper.yaml`.
 - [x] Merge conversion metadata by confidence to protect high-confidence fields.
+- [x] Define source adapter interface and make local-folder import the reference adapter.
 
 ## Validation Log
 
@@ -106,3 +107,4 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - `.agents/superpowers/specs/2026-05-13-paper-cli-engineering-m1-m2-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
+- `.agents/superpowers/specs/2026-05-13-paper-cli-source-adapters-implementation.md`

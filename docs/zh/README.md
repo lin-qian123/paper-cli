@@ -14,4 +14,5 @@
 - [contracts/paper-yaml.zh.md](contracts/paper-yaml.zh.md)：`paper.yaml` 契约。
 - [contracts/conversion-json.zh.md](contracts/conversion-json.zh.md)：`conversion.json` 契约。
 - [contracts/cli-json.zh.md](contracts/cli-json.zh.md)：CLI JSON 输出契约。
+- [contracts/source-adapters.zh.md](contracts/source-adapters.zh.md)：Source adapter 契约。
 - [smoke-tests/mineru.zh.md](smoke-tests/mineru.zh.md)：真实 MinerU smoke test 清单。
