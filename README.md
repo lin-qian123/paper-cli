@@ -8,6 +8,8 @@ Its purpose is to make research papers easier for AI agents to manage and read. 
 
 Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, and repairing converted bundles with an OpenAI-compatible AI provider.
 
+The built-in AI repair phase is now usable as a conservative post-conversion repair layer. It can repair metadata, rename bundles from repaired metadata, and patch low-risk Markdown extraction defects. Formula-heavy, table, reference, and math-heavy blocks are recorded as review-only warnings instead of being automatically rewritten.
+
 The approved MVP direction is:
 
 - Import local PDF files or folders.
@@ -85,7 +87,7 @@ python3 -m paper_cli --library /path/to/paper-library repair --target metadata -
 python3 -m paper_cli --library /path/to/paper-library repair --json
 ```
 
-`paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`.
+`paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and low-risk suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`. Higher-risk scientific content is preserved and recorded as `review_only` warnings for later inspection.
 
 ## Library Shape
 
@@ -154,7 +156,7 @@ Later phases:
 
 ## Development Notes
 
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, and `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the planned AI repair layer.
+See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
 
 Contract docs:
 

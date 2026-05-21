@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Local-folder MVP implemented and covered by tests. The first built-in AI repair pass is implemented for OpenAI-compatible providers; next work should validate real-provider behavior and harden edge cases before expanding source adapters.
+Local-folder MVP implemented and covered by tests. The first built-in AI repair phase is closed for now: OpenAI-compatible metadata repair, conservative Markdown repair, backups, `repair.json`, real-provider smoke tests, and suspicious-block hardening are implemented and verified. The next proposed AI feature is `paper extract summary`, a structured article-skeleton extraction command that produces block summaries, section summaries, and a lightweight knowledge graph with source traceability.
 
 ## Engineering Phase
 
@@ -22,6 +22,8 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 
 ## AI Repair Phase
 
+Status: phase-complete for now. Remaining unchecked items are follow-up enhancements, not blockers for the current AI repair milestone.
+
 - [x] Implement `paper repair` with default `--target all`.
 - [x] Add `--target metadata`, `--target markdown`, and `--dry-run`.
 - [x] Add an OpenAI-compatible provider configured by environment variables and optional `paper-cli.yaml` settings.
@@ -32,13 +34,32 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 - [x] Write `repair.json` with applied changes, warnings, provider, model, and timestamps.
 - [x] Add fake-provider tests for provider errors, invalid JSON, dry-run behavior, metadata repair, Markdown block patching, and backup creation.
 - [x] Add a manual real-provider smoke-test checklist under `docs/smoke-tests/`.
-- [ ] Run a real-provider AI repair smoke test on a converted non-sensitive PDF.
+- [x] Run a real-provider AI repair smoke test on a converted non-sensitive PDF.
 - [ ] Add an optional bundle selector for targeted repair after library-wide behavior is validated.
 - [ ] Decide whether repair history should stay latest-only or become append-only JSONL.
 - [x] Fix `paper repair --target all` so a later Markdown provider failure cannot leave metadata half-written for the same bundle.
 - [x] Write a development record for suspicious-block weaknesses and implement conservative reason/policy classification.
 - [ ] Aggregate verbose `review_only` Markdown warnings by reason/count while keeping detailed block IDs available.
 - [ ] Add a future review/apply path for long prose OCR candidates that are currently `review_only`.
+
+## AI Extract Summary Phase
+
+Status: design recorded, not implemented.
+
+- [x] Confirm command family as `paper extract`, with first capability `paper extract summary`.
+- [x] Choose a layered extraction pipeline: block-level concurrent summaries, section-level aggregation, and graph-level extraction.
+- [x] Confirm CLI-internal provider concurrency instead of Codex/external subagent dependency.
+- [x] Confirm output location: `extracts/summary/summary.json`, `extracts/summary/summary.md`, and `extracts/summary/source-map.json`.
+- [x] Confirm default skip behavior for existing summary output, with `--force` for regeneration.
+- [x] Confirm UI-oriented traceability through stable `block_id`, source line ranges, text hashes, section paths, and `source-map.json`.
+- [x] Confirm summary length should be content-dependent, not limited to one sentence.
+- [x] Confirm first-pass block policy: summarize main prose/captions; skip references, footnotes, funding, copyright/license, headers/footers, page numbers, OCR noise, pure formulas, pure tables, and pure images.
+- [x] Record design in `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`.
+- [ ] Write an implementation plan for `paper extract summary`.
+- [ ] Implement target selection: `--paper`, `--collection`, `--limit`, `--workers`, `--force`, `--dry-run`, and `--json`.
+- [ ] Implement summary-specific block classification and source-map generation.
+- [ ] Implement fake-provider tests for block workers, section aggregation, graph extraction, skip behavior, and traceability.
+- [ ] Run a real-provider smoke test on converted non-sensitive papers.
 
 ## Validation Log
 
@@ -85,6 +106,24 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
   - Added detection for HTML tables, reference sections, common OCR words, repeated phrases, broken images, and long OCR paragraphs that should not be auto-sent.
   - `make verify` passed with 51 tests.
   - Real-provider retest on `paper-libraries/full-smoke-library-optimized-v2` completed with `failed=[]`; compared with the previous clean run, patch mismatch warnings fell from 3 to 1 and protected-block warnings fell from 4 to 0, while risky math/formula findings became explicit `review_only` records.
+- 2026-05-21 AI repair metadata normalization fix:
+  - Fixed a full-smoke regression where provider responses using `creators` as a string list were rejected as invalid, leaving repaired bundle names without the author prefix.
+  - Added a fake-provider regression test covering `creators: ["W.L. Huang", "Q.F. Li", "Y.Z. Lin"]` normalization to `paper.yaml` creator objects and metadata-based bundle rename.
+  - Re-ran real-provider repair on `paper-libraries/full-smoke-library-optimized-v2`: `failed=[]`; the Huang photoneutron bundle renamed to `W.L. Huang et al. - 2005 - ...`, `paper doctor --json` returned `ok=true`, and format audit found no invalid creator shapes or naming mismatches.
+  - Markdown audit still flags review-only math/formula-heavy blocks as expected, plus remaining low-risk auto-repair candidates such as front-matter labels and OCR spelling residue in the Richi Kumar GIANT paper.
+  - Unified creator normalization across filename/PDF metadata, MinerU `Authors:` parsing, AI repair, and doctor validation. `make verify` passed with 56 tests.
+- 2026-05-21 AI repair phase closeout:
+  - Treat the built-in AI repair feature as phase-complete for now.
+  - Current shipped scope: OpenAI-compatible provider, metadata evidence packets, safe metadata application, bundle rename after repaired metadata, conservative Markdown repair, exact-match patching, bundle-local backups, latest-only `repair.json`, dry-run support, fake-provider tests, and real-provider validation.
+  - Current safety boundary: math-heavy/formula/table/reference blocks are not auto-rewritten; they are recorded as `review_only` warnings.
+  - Remaining AI repair ideas are follow-up enhancements: warning aggregation, review/apply workflow for long OCR prose candidates, optional bundle selector, and possible append-only repair history.
+- 2026-05-21 AI extract summary planning:
+  - Agreed that the next AI feature should be named `paper extract summary`, with `paper extract` reserved as a future command family for structured extraction tasks.
+  - Selected a layered extraction route: main process builds a short article brief and source structure, internal concurrent workers summarize block batches, then aggregators produce section skeletons and a lightweight knowledge graph.
+  - Confirmed output files under `extracts/summary/`: `summary.json` for structured agent/program use, `summary.md` for human reading, and `source-map.json` for future frontend paragraph-summary alignment.
+  - Confirmed strict traceability as a core contract: stable block IDs, line ranges, text hashes, excerpts, section paths, `block_ids` on section summaries, and `source_block_ids` on graph nodes/edges.
+  - Confirmed first-pass filtering: summarize main prose and captions; skip references, footnotes, funding, author contributions, conflicts, copyright/license text, headers/footers, page numbers, OCR noise, pure formulas, pure tables, and pure images.
+  - Recorded the design in `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`; implementation has not started.
 
 ## Approved MVP
 
@@ -158,3 +197,4 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 - `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-source-adapters-implementation.md`
 - `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`
+- `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`

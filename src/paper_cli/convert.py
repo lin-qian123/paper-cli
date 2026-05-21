@@ -8,7 +8,7 @@ from pathlib import Path
 from .config import load_config
 from .converters.base import Converter
 from .indexes import append_job, find_paper_dirs, rebuild_papers_index
-from .metadata import detect_language
+from .metadata import detect_language, normalize_creators
 from .models import PaperRecord, read_paper, utc_now_iso, write_paper
 from .naming import render_name, resolve_duplicate_name, sanitize_name
 
@@ -42,7 +42,7 @@ def extract_metadata_details_from_markdown(
         sources["title"] = "mineru"
         confidence["title"] = "high"
     if creator:
-        metadata["creators"] = [{"name": creator, "role": "author"}]
+        metadata["creators"] = normalize_creators(creator)
         sources["creators"] = "mineru"
         confidence["creators"] = "high"
     if year:

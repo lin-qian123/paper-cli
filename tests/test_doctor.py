@@ -15,6 +15,28 @@ def test_doctor_reports_missing_original_pdf(tmp_path):
     assert any(issue.code == "missing-original-pdf" for issue in issues)
 
 
+def test_doctor_reports_invalid_creator_shape(tmp_path):
+    bundle = tmp_path / "library" / "inbox" / "Malformed"
+    bundle.mkdir(parents=True)
+    (bundle / "original.pdf").write_bytes(b"%PDF-1.4\n")
+    (bundle / "paper.yaml").write_text(
+        "schema_version: 1\n"
+        "id: abc\n"
+        "name: Malformed\n"
+        "metadata:\n"
+        "  title: Malformed\n"
+        "  creators:\n"
+        "    - W.L. Huang\n"
+        "status:\n"
+        "  conversion: pending\n",
+        encoding="utf-8",
+    )
+
+    issues = run_doctor(tmp_path / "library")
+
+    assert any(issue.code == "invalid-creators" for issue in issues)
+
+
 def test_status_json_reports_counts(tmp_path, capsys):
     library = tmp_path / "library"
     pdf = tmp_path / "A et al. - 2025 - Status Paper.pdf"

@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-本地文件夹 MVP 已实现并有测试覆盖。第一版内置 AI 修复已支持 OpenAI-compatible provider；下一步应先验证真实 provider 行为并加固边界情况，再扩展来源适配器。
+本地文件夹 MVP 已实现并有测试覆盖。第一阶段内置 AI repair 先告一段落：OpenAI-compatible 元数据修复、保守 Markdown 修复、备份、`repair.json`、真实 provider smoke test 和 suspicious-block 加固都已实现并验证。下一项已规划的 AI 功能是 `paper extract summary`：从已转换 Markdown 中抽取 block 总结、章节骨架和轻量知识图谱，并保留面向后续前端阅读器的原文追溯关系。
 
 ## 工程化阶段
 
@@ -22,6 +22,8 @@
 
 ## AI 修复阶段
 
+状态：本阶段先视为完成。下面未勾选项是后续增强，不是当前 AI repair 里程碑的阻塞点。
+
 - [x] 实现 `paper repair`，默认等价于 `--target all`。
 - [x] 增加 `--target metadata`、`--target markdown` 和 `--dry-run`。
 - [x] 增加 OpenAI-compatible provider，支持环境变量和可选 `paper-cli.yaml` 配置。
@@ -32,13 +34,32 @@
 - [x] 写入 `repair.json`，记录变更、warning、provider、model 和时间戳。
 - [x] 增加 fake-provider 测试，覆盖 provider 错误、无效 JSON、dry-run、元数据修复、Markdown block patch 和备份创建。
 - [x] 增加真实 provider 手动 smoke-test 清单到 `docs/smoke-tests/`。
-- [ ] 用一个已转换、非敏感 PDF 运行真实 provider AI repair smoke test。
+- [x] 用一个已转换、非敏感 PDF 运行真实 provider AI repair smoke test。
 - [ ] 在 library-wide 行为验证后，增加可选 bundle selector。
 - [ ] 决定 repair 历史保持 latest-only，还是扩展为 append-only JSONL。
 - [x] 修复 `paper repair --target all`：后续 Markdown provider 失败时，不能让同一个 bundle 留下 metadata 半写入状态。
 - [x] 编写 suspicious block 缺陷开发记录，并实现保守的 reason/policy 分类。
 - [ ] 将冗长的 `review_only` Markdown warning 按 reason/count 聚合，同时保留详细 block id。
 - [ ] 为当前 `review_only` 的长段落 OCR 候选增加后续 review/apply 路径。
+
+## AI Extract Summary 阶段
+
+状态：设计已记录，尚未实现。
+
+- [x] 确认命令族为 `paper extract`，第一项能力为 `paper extract summary`。
+- [x] 确认采用分层抽取管线：block 级并发总结、section 级聚合、graph 级抽取。
+- [x] 确认使用 CLI 内部 provider 并发，不依赖 Codex 或外部 subagent。
+- [x] 确认输出位置：`extracts/summary/summary.json`、`extracts/summary/summary.md`、`extracts/summary/source-map.json`。
+- [x] 确认默认跳过已有 summary 输出，使用 `--force` 重新生成。
+- [x] 确认面向前端阅读器的追溯设计：稳定 `block_id`、原文行号、文本 hash、章节路径和 `source-map.json`。
+- [x] 确认摘要长度按段落内容决定，不限制为一句话。
+- [x] 确认第一版 block 策略：总结正文 prose/caption；跳过 references、footnotes、funding、copyright/license、页眉页脚、页码、OCR 噪声、纯公式、纯表格和纯图片。
+- [x] 将设计记录到 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`。
+- [ ] 为 `paper extract summary` 编写实现计划。
+- [ ] 实现目标选择：`--paper`、`--collection`、`--limit`、`--workers`、`--force`、`--dry-run` 和 `--json`。
+- [ ] 实现 summary 专用 block 分类和 source-map 生成。
+- [ ] 增加 fake-provider 测试，覆盖 block worker、section 聚合、graph 抽取、跳过策略和追溯关系。
+- [ ] 在已转换的非敏感论文上运行真实 provider smoke test。
 
 ## 验证记录
 
@@ -85,6 +106,24 @@
   - 增加 HTML table、reference section、常见 OCR 词、重复片段、坏图片、长 OCR 段落的检测。
   - `make verify` 通过，测试数为 51。
   - 使用 `paper-libraries/full-smoke-library-optimized-v2` 做真实 provider 复测，结果 `failed=[]`；相比上一轮 clean 结果，patch mismatch warning 从 3 降到 1，protected-block warning 从 4 降到 0，风险较高的数学/公式发现转为明确的 `review_only` 记录。
+- 2026-05-21 AI repair 元数据归一化修复：
+  - 修复 full-smoke 回归：provider 将 `creators` 返回为字符串列表时会被判为非法，导致修复后 bundle 命名缺少作者前缀。
+  - 增加 fake-provider 回归测试，覆盖 `creators: ["W.L. Huang", "Q.F. Li", "Y.Z. Lin"]` 归一化为 `paper.yaml` creator 对象，并触发基于元数据的 bundle 重命名。
+  - 使用真实 provider 重新运行 `paper-libraries/full-smoke-library-optimized-v2`：`failed=[]`；Huang 光中子论文 bundle 已重命名为 `W.L. Huang et al. - 2005 - ...`，`paper doctor --json` 返回 `ok=true`，格式审计未发现非法 creator 形状或命名不一致。
+  - Markdown 审计仍按预期标记公式/数学密集块为 review-only，另外还有少量低风险 auto-repair 候选，例如 front-matter 标签和 Richi Kumar GIANT 论文中的 OCR 拼写残留。
+  - 统一 filename/PDF metadata、MinerU `Authors:` 解析、AI repair 和 doctor validation 的 creator 归一化逻辑。`make verify` 通过，测试数为 56。
+- 2026-05-21 AI repair 阶段收口：
+  - 内置 AI repair 功能本阶段先视为完成。
+  - 当前已交付范围：OpenAI-compatible provider、元数据 evidence packet、安全元数据应用、修复后同步重命名 bundle、保守 Markdown repair、exact-match patch、bundle-local backup、latest-only `repair.json`、dry-run、fake-provider 测试和真实 provider 验证。
+  - 当前安全边界：数学密集、公式、表格和参考文献 block 不自动改写，只记录为 `review_only` warning。
+  - 剩余 AI repair 方向作为后续增强：warning 聚合、长段落 OCR 候选的 review/apply 工作流、可选 bundle selector、append-only repair history。
+- 2026-05-21 AI extract summary 规划：
+  - 确认下一项 AI 功能命名为 `paper extract summary`，并将 `paper extract` 保留为后续结构化抽取命令族。
+  - 选择分层抽取路线：主流程构建简短文章背景和原文结构，内部并发 worker 总结 block batch，再聚合章节骨架和轻量知识图谱。
+  - 确认输出文件位于 `extracts/summary/`：`summary.json` 面向结构化读取，`summary.md` 面向人类阅读，`source-map.json` 面向后续前端段落-总结对齐。
+  - 确认严格追溯关系是核心合同：稳定 block id、行号、文本 hash、excerpt、section path、章节总结中的 `block_ids`、图谱节点/边中的 `source_block_ids`。
+  - 确认第一版筛选策略：总结正文和 caption；跳过 references、footnotes、funding、author contributions、conflicts、copyright/license、页眉页脚、页码、OCR 噪声、纯公式、纯表格和纯图片。
+  - 已将设计记录到 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`；尚未开始实现。
 
 ## 已确认 MVP
 
@@ -158,3 +197,4 @@
 - `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-source-adapters-implementation.md`
 - `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`
+- `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`

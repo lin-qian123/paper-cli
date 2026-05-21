@@ -165,3 +165,22 @@ Qualitative result:
 - Improved: scientific formula-heavy changes in Yangyi Yu and the Chinese reports were mostly converted to `review_only` instead of automatic edits.
 - Remaining issue: `review_only` warnings are too verbose for large papers. The next improvement should aggregate warnings by reason and count, while preserving detailed block IDs in a machine-readable field.
 - Remaining issue: long prose OCR errors are conservative `review_only` by default, so automatic repair may miss valid prose fixes unless a future review/apply workflow is added.
+
+## Phase Closeout
+
+The AI repair milestone is closed for now.
+
+Accepted shipped behavior:
+
+- Metadata repair is active and can update bundle naming through the existing naming flow.
+- Markdown repair is intentionally conservative.
+- Low-risk extraction defects can be automatically patched when the model returns exact-match patches.
+- Math-heavy, formula, table, and reference content is not automatically rewritten.
+- Every applied run writes `repair.json` and creates file backups only for files that changed.
+
+Follow-up work should not be treated as a blocker for the current milestone:
+
+- aggregate verbose `review_only` warnings;
+- add a human review/apply workflow for long OCR prose candidates;
+- add a bundle selector for targeted repair;
+- consider append-only repair history or index-level repair job logs.

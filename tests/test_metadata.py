@@ -1,7 +1,12 @@
 import logging
 from pathlib import Path
 
-from paper_cli.metadata import fast_metadata, fast_metadata_details, metadata_from_filename
+from paper_cli.metadata import (
+    fast_metadata,
+    fast_metadata_details,
+    metadata_from_filename,
+    normalize_creators,
+)
 
 
 def test_parse_author_year_title_filename():
@@ -58,3 +63,15 @@ def test_fast_metadata_details_marks_stem_title_low_confidence(tmp_path):
     assert meta["title"] == "unknown-paper"
     assert sources["title"] == "filename-stem"
     assert confidence["title"] == "low"
+
+
+def test_normalize_creators_accepts_common_provider_shapes():
+    assert normalize_creators("W.L. Huang, Q.F. Li and Y.Z. Lin") == [
+        {"name": "W.L. Huang", "role": "author"},
+        {"name": "Q.F. Li", "role": "author"},
+        {"name": "Y.Z. Lin", "role": "author"},
+    ]
+    assert normalize_creators(["W.L. Huang", {"name": "Q.F. Li", "role": "editor"}]) == [
+        {"name": "W.L. Huang", "role": "author"},
+        {"name": "Q.F. Li", "role": "editor"},
+    ]

@@ -17,9 +17,45 @@ def detect_language(text: str) -> str:
     return "en"
 
 
+def normalize_creators(value: Any) -> list[dict[str, str]]:
+    if value in (None, "", []):
+        return []
+    items = value
+    if isinstance(value, str):
+        normalized = re.sub(r"\s+and\s+", ",", value.strip())
+        items = [part.strip() for part in re.split(r"[;,]", normalized) if part.strip()]
+    if not isinstance(items, list):
+        return []
+
+    creators: list[dict[str, str]] = []
+    for item in items:
+        if isinstance(item, str):
+            name = item.strip()
+            role = "author"
+        elif isinstance(item, dict):
+            name = str(item.get("name") or "").strip()
+            role = str(item.get("role") or "author").strip() or "author"
+        else:
+            return []
+        name = re.sub(r"\s+et\s+al\.?$", "", name, flags=re.IGNORECASE).strip()
+        if not name:
+            return []
+        creators.append({"name": name, "role": role})
+    return creators
+
+
+def valid_creators(value: Any) -> bool:
+    if not isinstance(value, list):
+        return False
+    return all(
+        isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"].strip()
+        for item in value
+    )
+
+
 def _creator_from_text(value: str) -> dict[str, str]:
-    name = re.sub(r"\s+et\s+al\.?$", "", value.strip(), flags=re.IGNORECASE).strip()
-    return {"name": name, "role": "author"} if name else {}
+    creators = normalize_creators(value)
+    return creators[0] if creators else {}
 
 
 def _empty_metadata(title: str = "") -> dict[str, Any]:
@@ -81,7 +117,7 @@ def metadata_from_pdf(path: Path) -> dict[str, Any]:
     author = str(raw.get("/Author") or "").strip()
     metadata = _empty_metadata(title)
     if author:
-        metadata["creators"] = [{"name": author, "role": "author"}]
+        metadata["creators"] = normalize_creators(author)
     return metadata
 
 

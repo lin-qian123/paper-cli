@@ -9,6 +9,7 @@ from typing import Any
 
 from paper_cli.convert import maybe_rename_bundle
 from paper_cli.indexes import find_paper_dirs, rebuild_papers_index
+from paper_cli.metadata import normalize_creators, valid_creators
 from paper_cli.models import PaperRecord, read_paper, utc_now_iso, write_paper
 
 from .markdown_blocks import (
@@ -146,8 +147,14 @@ def _valid_metadata_value(field: str, value: Any) -> bool:
     if field == "year":
         return isinstance(value, int) and 1000 <= value <= 3000
     if field == "creators":
-        return isinstance(value, list) and all(isinstance(item, dict) for item in value)
+        return valid_creators(value)
     return False
+
+
+def _normalize_metadata_value(field: str, value: Any) -> Any:
+    if field != "creators":
+        return value
+    return normalize_creators(value)
 
 
 def _is_user_high_confidence(record: PaperRecord, field: str) -> bool:
@@ -178,7 +185,7 @@ def repair_metadata(
             continue
         field = str(change.get("field") or "")
         confidence = str(change.get("confidence") or "")
-        new = change.get("new")
+        new = _normalize_metadata_value(field, change.get("new"))
         evidence = str(change.get("evidence") or "")
         if field not in SUPPORTED_METADATA_FIELDS:
             result.warnings.append(f"Unsupported metadata field skipped: {field}")

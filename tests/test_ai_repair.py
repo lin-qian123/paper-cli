@@ -231,6 +231,103 @@ def test_repair_metadata_applies_safe_change_with_backup_record_and_index(
     assert "Correct Title" in index
 
 
+def test_repair_metadata_normalizes_string_creator_list_and_renames(tmp_path, monkeypatch, capsys):
+    library = tmp_path / "library"
+    make_converted_bundle(library, creators=[])
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(
+            chat_payload(
+                {
+                    "proposed_metadata": {
+                        "creators": ["W.L. Huang", "Q.F. Li", "Y.Z. Lin"],
+                        "year": 2005,
+                    },
+                    "field_changes": [
+                        {
+                            "field": "creators",
+                            "old": [],
+                            "new": ["W.L. Huang", "Q.F. Li", "Y.Z. Lin"],
+                            "confidence": "high",
+                            "source": "ai-md-head",
+                            "evidence": "Markdown head lists authors as W.L. Huang, Q.F. Li, Y.Z. Lin.",
+                        },
+                        {
+                            "field": "year",
+                            "old": 2024,
+                            "new": 2005,
+                            "confidence": "high",
+                            "source": "ai-md-head",
+                            "evidence": "Markdown head includes a 2005 publication date.",
+                        },
+                    ],
+                    "warnings": [],
+                }
+            )
+        )
+
+    monkeypatch.setenv("PAPER_AI_BASE_URL", "http://example.test/v1")
+    monkeypatch.setenv("PAPER_AI_API_KEY", "key")
+    monkeypatch.setenv("PAPER_AI_MODEL", "model-a")
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", fake_post)
+
+    assert main(["--library", str(library), "repair", "--target", "metadata", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    repaired_bundle = library / "inbox" / "W.L. Huang et al. - 2005 - Old Title"
+    record = read_paper(repaired_bundle)
+    repair = json.loads((repaired_bundle / "repair.json").read_text(encoding="utf-8"))
+
+    assert payload["repaired"][0]["path"] == str(repaired_bundle)
+    assert record.metadata["creators"] == [
+        {"name": "W.L. Huang", "role": "author"},
+        {"name": "Q.F. Li", "role": "author"},
+        {"name": "Y.Z. Lin", "role": "author"},
+    ]
+    assert record.metadata_sources["creators"] == "ai-repair"
+    assert repair["metadata"]["warnings"] == []
+
+
+def test_repair_metadata_normalizes_creator_string_and_renames(tmp_path, monkeypatch, capsys):
+    library = tmp_path / "library"
+    make_converted_bundle(library, creators=[])
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(
+            chat_payload(
+                {
+                    "proposed_metadata": {"creators": "W.L. Huang, Q.F. Li and Y.Z. Lin"},
+                    "field_changes": [
+                        {
+                            "field": "creators",
+                            "old": [],
+                            "new": "W.L. Huang, Q.F. Li and Y.Z. Lin",
+                            "confidence": "high",
+                            "source": "ai-md-head",
+                            "evidence": "Markdown head lists authors as W.L. Huang, Q.F. Li and Y.Z. Lin.",
+                        }
+                    ],
+                    "warnings": [],
+                }
+            )
+        )
+
+    monkeypatch.setenv("PAPER_AI_BASE_URL", "http://example.test/v1")
+    monkeypatch.setenv("PAPER_AI_API_KEY", "key")
+    monkeypatch.setenv("PAPER_AI_MODEL", "model-a")
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", fake_post)
+
+    assert main(["--library", str(library), "repair", "--target", "metadata", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    repaired_bundle = library / "inbox" / "W.L. Huang et al. - 2024 - Old Title"
+    record = read_paper(repaired_bundle)
+
+    assert payload["repaired"][0]["path"] == str(repaired_bundle)
+    assert record.metadata["creators"][0]["name"] == "W.L. Huang"
+    assert len(record.metadata["creators"]) == 3
+
+
 def test_repair_metadata_preserves_user_high_confidence_field(tmp_path, monkeypatch):
     library = tmp_path / "library"
     bundle = make_converted_bundle(

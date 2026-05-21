@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from .indexes import find_paper_dirs
+from .metadata import valid_creators
 from .models import read_paper
 
 
@@ -39,6 +40,16 @@ def run_doctor(library_dir: Path) -> list[Issue]:
             )
         else:
             seen_ids[record.id] = bundle_dir
+
+        creators = record.metadata.get("creators", [])
+        if not valid_creators(creators):
+            issues.append(
+                Issue(
+                    "invalid-creators",
+                    str(metadata_path),
+                    "metadata.creators must be a list of objects with non-empty name",
+                )
+            )
 
         if not (bundle_dir / "original.pdf").exists():
             issues.append(Issue("missing-original-pdf", str(bundle_dir), "Missing original.pdf"))

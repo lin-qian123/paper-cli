@@ -8,6 +8,8 @@
 
 本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，以及通过 OpenAI-compatible provider 修复已转换 bundle。
 
+内置 AI repair 阶段已达到阶段性可用状态。它可以修复元数据、根据修复后的元数据同步重命名 bundle，并对低风险 Markdown 抽取缺陷做自动 patch。公式密集、表格、参考文献和数学密集 block 会记录为 `review_only` warning，而不是自动改写。
+
 已经确认的 MVP 方向：
 
 - 导入本地 PDF 文件或文件夹。
@@ -85,7 +87,7 @@ python3 -m paper_cli --library /path/to/paper-library repair --target metadata -
 python3 -m paper_cli --library /path/to/paper-library repair --json
 ```
 
-`paper repair` 默认等价于 `--target all`。它可以修复 `paper.yaml` 中的元数据和 `paper.md` 中明显可疑的 Markdown 抽取缺陷；实际写入时会生成 `repair.json`，在修改前创建 bundle 内备份，并重建 `indexes/papers.jsonl`。
+`paper repair` 默认等价于 `--target all`。它可以修复 `paper.yaml` 中的元数据和 `paper.md` 中低风险的可疑 Markdown 抽取缺陷；实际写入时会生成 `repair.json`，在修改前创建 bundle 内备份，并重建 `indexes/papers.jsonl`。较高风险的科学内容会保留原文，只记录为 `review_only` warning 供后续检查。
 
 ## 文献库结构
 
@@ -154,7 +156,7 @@ MVP：
 
 ## 开发说明
 
-当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。计划中的 AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`。
+当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
 
 契约和验证文档：
 

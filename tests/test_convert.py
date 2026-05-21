@@ -187,6 +187,34 @@ def test_convert_pending_infers_creator_from_filename_title_prefix(tmp_path):
     assert (renamed / "paper.yaml").exists()
 
 
+def test_convert_pending_splits_authors_line_into_creator_objects(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text(
+        "# Correct Title\nAuthors: W.L. Huang, Q.F. Li and Y.Z. Lin\n",
+        encoding="utf-8",
+    )
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    renamed = library / "inbox" / "W.L. Huang et al. - Correct Title"
+    record = read_paper(renamed)
+    assert record.metadata["creators"] == [
+        {"name": "W.L. Huang", "role": "author"},
+        {"name": "Q.F. Li", "role": "author"},
+        {"name": "Y.Z. Lin", "role": "author"},
+    ]
+
+
 def test_convert_pending_records_metadata_provenance(tmp_path):
     library = tmp_path / "library"
     pdf = (
