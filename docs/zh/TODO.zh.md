@@ -18,6 +18,20 @@
 - [x] 在 `paper.yaml` 中增加元数据来源和置信度字段。
 - [x] 按置信度合并转换元数据，保护高置信度字段。
 - [x] 定义 source adapter 接口，并将本地文件夹导入作为参考 adapter。
+- [x] 写好 `paper repair` 的 AI 修复设计。
+
+## AI 修复阶段
+
+- [ ] 实现 `paper repair`，默认等价于 `--target all`。
+- [ ] 增加 `--target metadata`、`--target markdown` 和 `--dry-run`。
+- [ ] 增加 OpenAI-compatible provider，支持环境变量和可选 `paper-cli.yaml` 配置。
+- [ ] 从 `paper.yaml`、bundle 名称、PDF 文件名、转换状态和 Markdown 开头构造有边界的元数据证据包。
+- [ ] 按置信度安全应用元数据修复，并写入 `metadata_sources=ai-repair`。
+- [ ] 将 `paper.md` 拆成文本块，只把可疑块发送给 AI 检查修复。
+- [ ] 写入 `paper.yaml` 或 `paper.md` 前创建 bundle 内备份。
+- [ ] 写入 `repair.json`，记录变更、warning、provider、model 和时间戳。
+- [ ] 增加 fake-provider 测试，覆盖 provider 错误、无效 JSON、dry-run、元数据修复、Markdown block patch 和备份创建。
+- [ ] 增加真实 provider 手动 smoke-test 清单到 `docs/smoke-tests/`。
 
 ## 验证记录
 
@@ -114,3 +128,4 @@
 - `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-source-adapters-implementation.md`
+- `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`

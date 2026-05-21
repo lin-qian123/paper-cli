@@ -137,7 +137,7 @@ MVP：
 
 ## 开发说明
 
-当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。
+当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。计划中的 AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`。
 
 契约和验证文档：
 

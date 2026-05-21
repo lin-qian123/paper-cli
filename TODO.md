@@ -18,6 +18,20 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - [x] Add metadata source and confidence fields to `paper.yaml`.
 - [x] Merge conversion metadata by confidence to protect high-confidence fields.
 - [x] Define source adapter interface and make local-folder import the reference adapter.
+- [x] Write the approved AI repair design for `paper repair`.
+
+## AI Repair Phase
+
+- [ ] Implement `paper repair` with default `--target all`.
+- [ ] Add `--target metadata`, `--target markdown`, and `--dry-run`.
+- [ ] Add an OpenAI-compatible provider configured by environment variables and optional `paper-cli.yaml` settings.
+- [ ] Build bounded metadata evidence packets from `paper.yaml`, bundle name, PDF filename, conversion state, and the Markdown head.
+- [ ] Apply safe metadata repairs with `metadata_sources=ai-repair` and confidence-aware merge rules.
+- [ ] Split `paper.md` into blocks and send only suspicious blocks to AI for repair.
+- [ ] Create per-bundle backups before writing `paper.yaml` or `paper.md`.
+- [ ] Write `repair.json` with applied changes, warnings, provider, model, and timestamps.
+- [ ] Add fake-provider tests for provider errors, invalid JSON, dry-run behavior, metadata repair, Markdown block patching, and backup creation.
+- [ ] Add a manual real-provider smoke-test checklist under `docs/smoke-tests/`.
 
 ## Validation Log
 
@@ -114,3 +128,4 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 - `.agents/superpowers/specs/2026-05-13-paper-cli-conversion-jobs-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-metadata-provenance-implementation.md`
 - `.agents/superpowers/specs/2026-05-13-paper-cli-source-adapters-implementation.md`
+- `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`

@@ -137,7 +137,7 @@ Later phases:
 
 ## Development Notes
 
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, and `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design.
+See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, and `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the planned AI repair layer.
 
 Contract docs:
 
