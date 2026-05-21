@@ -38,6 +38,16 @@ Implement the first usable skeleton around:
 
 The MVP imports local PDF files or folders, copies PDFs into the library, converts pending papers with MinerU, writes `paper.md` and `images/`, updates metadata, and automatically renames paper bundles after better metadata becomes available.
 
+## Current Post-MVP AI Scope
+
+`paper repair` is the first built-in AI layer. It should stay bounded and review-oriented:
+
+- Use OpenAI-compatible chat completions providers only until another provider family is explicitly designed.
+- Read provider settings from environment variables or `paper-cli.yaml`, and read secrets from environment variables only.
+- Repair metadata and obvious Markdown extraction defects from local bundle evidence; do not translate, summarize, or stylistically rewrite papers.
+- Create bundle-local backups before applying changes and record each applied run in `repair.json`.
+- Keep full-paper AI passes, identifier lookup services, and automatic repair during import/convert out of this first AI layer unless a later design approves them.
+
 ## Development Rules
 
 - Before creating new features or changing behavior, use Superpowers brainstorming for design and obtain user approval.

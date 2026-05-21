@@ -6,7 +6,7 @@ Its purpose is to make research papers easier for AI agents to manage and read. 
 
 ## Current Status
 
-Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, and running library checks.
+Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, and repairing converted bundles with an OpenAI-compatible AI provider.
 
 The approved MVP direction is:
 
@@ -36,6 +36,7 @@ paper convert --pending
 paper list
 paper status
 paper doctor
+paper repair
 ```
 
 ## Install For Development
@@ -74,6 +75,18 @@ For tests and dry runs, `convert` can use fixture output instead of the network:
 python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
 ```
 
+AI repair reads an OpenAI-compatible chat completions provider from environment variables:
+
+```bash
+export PAPER_AI_BASE_URL="https://api.openai.com/v1"
+export PAPER_AI_API_KEY="..."
+export PAPER_AI_MODEL="gpt-5.4-mini"
+python3 -m paper_cli --library /path/to/paper-library repair --target metadata --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library repair --json
+```
+
+`paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`.
+
 ## Library Shape
 
 ```text
@@ -87,6 +100,8 @@ paper-library/
         paper.md
         images/
         conversion.json
+        repair.json
+        backups/
         notes/
           README.md
   inbox/
@@ -96,6 +111,8 @@ paper-library/
       paper.md
       images/
       conversion.json
+      repair.json
+      backups/
       notes/
         README.md
   indexes/
@@ -146,6 +163,7 @@ Contract docs:
 - `docs/contracts/cli-json.md`
 - `docs/contracts/source-adapters.md`
 - `docs/smoke-tests/mineru.md`
+- `docs/smoke-tests/ai-repair.md`
 
 Chinese documentation is available under `docs/zh/`.
 

@@ -1,5 +1,6 @@
 .pytest_cache/
 .venv/
+.env
 __pycache__/
 *.py[cod]
 *.egg-info/

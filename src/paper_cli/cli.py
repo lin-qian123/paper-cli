@@ -45,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
     add_json_flag(status_parser)
     doctor_parser = subparsers.add_parser("doctor", help="validate library")
     add_json_flag(doctor_parser)
+    repair_parser = subparsers.add_parser("repair", help="repair converted bundles with AI")
+    repair_parser.add_argument(
+        "--target",
+        choices=("metadata", "markdown", "all"),
+        default="all",
+    )
+    repair_parser.add_argument("--dry-run", action="store_true")
+    add_json_flag(repair_parser)
 
     return parser
 
@@ -120,4 +128,38 @@ def main(argv: list[str] | None = None) -> int:
             for issue in issues:
                 print(f"{issue.code}: {issue.path} - {issue.message}")
         return 1 if issues else 0
+    if args.command == "repair":
+        from .ai.providers import (
+            OpenAICompatibleProvider,
+            ProviderConfigError,
+            load_provider_config,
+        )
+        from .ai.repair import repair_library
+
+        try:
+            provider = OpenAICompatibleProvider(load_provider_config(Path(args.library)))
+        except ProviderConfigError as exc:
+            payload = {"ok": False, "error": str(exc), "repaired": [], "failed": []}
+            if args.json:
+                _emit(payload, True)
+            else:
+                print(str(exc))
+            return 1
+        payload = repair_library(
+            Path(args.library),
+            provider,
+            target=args.target,
+            dry_run=args.dry_run,
+        )
+        if args.json:
+            _emit(payload, True)
+        else:
+            for row in payload["repaired"]:
+                print(
+                    f"{row['path']} metadata={row['metadata_changed']} "
+                    f"markdown={row['markdown_changed']}"
+                )
+            for row in payload["failed"]:
+                print(f"failed: {row['path']} - {row['error']}")
+        return 0 if payload["ok"] else 1
     return 0

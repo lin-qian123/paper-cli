@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-本地文件夹 MVP 已实现并有测试覆盖。工程化工作应先稳定契约和工具链，不增加不必要的平台复杂度。
+本地文件夹 MVP 已实现并有测试覆盖。第一版内置 AI 修复已支持 OpenAI-compatible provider；下一步应先验证真实 provider 行为并加固边界情况，再扩展来源适配器。
 
 ## 工程化阶段
 
@@ -22,16 +22,20 @@
 
 ## AI 修复阶段
 
-- [ ] 实现 `paper repair`，默认等价于 `--target all`。
-- [ ] 增加 `--target metadata`、`--target markdown` 和 `--dry-run`。
-- [ ] 增加 OpenAI-compatible provider，支持环境变量和可选 `paper-cli.yaml` 配置。
-- [ ] 从 `paper.yaml`、bundle 名称、PDF 文件名、转换状态和 Markdown 开头构造有边界的元数据证据包。
-- [ ] 按置信度安全应用元数据修复，并写入 `metadata_sources=ai-repair`。
-- [ ] 将 `paper.md` 拆成文本块，只把可疑块发送给 AI 检查修复。
-- [ ] 写入 `paper.yaml` 或 `paper.md` 前创建 bundle 内备份。
-- [ ] 写入 `repair.json`，记录变更、warning、provider、model 和时间戳。
-- [ ] 增加 fake-provider 测试，覆盖 provider 错误、无效 JSON、dry-run、元数据修复、Markdown block patch 和备份创建。
-- [ ] 增加真实 provider 手动 smoke-test 清单到 `docs/smoke-tests/`。
+- [x] 实现 `paper repair`，默认等价于 `--target all`。
+- [x] 增加 `--target metadata`、`--target markdown` 和 `--dry-run`。
+- [x] 增加 OpenAI-compatible provider，支持环境变量和可选 `paper-cli.yaml` 配置。
+- [x] 从 `paper.yaml`、bundle 名称、PDF 文件名、转换状态和 Markdown 开头构造有边界的元数据证据包。
+- [x] 按置信度安全应用元数据修复，并写入 `metadata_sources=ai-repair`。
+- [x] 将 `paper.md` 拆成文本块，只把可疑块发送给 AI 检查修复。
+- [x] 写入 `paper.yaml` 或 `paper.md` 前创建 bundle 内备份。
+- [x] 写入 `repair.json`，记录变更、warning、provider、model 和时间戳。
+- [x] 增加 fake-provider 测试，覆盖 provider 错误、无效 JSON、dry-run、元数据修复、Markdown block patch 和备份创建。
+- [x] 增加真实 provider 手动 smoke-test 清单到 `docs/smoke-tests/`。
+- [ ] 用一个已转换、非敏感 PDF 运行真实 provider AI repair smoke test。
+- [ ] 在 library-wide 行为验证后，增加可选 bundle selector。
+- [ ] 决定 repair 历史保持 latest-only，还是扩展为 append-only JSONL。
+- [x] 修复 `paper repair --target all`：后续 Markdown provider 失败时，不能让同一个 bundle 留下 metadata 半写入状态。
 
 ## 验证记录
 
@@ -56,6 +60,21 @@
   - `paper.yaml` 包含 `metadata_sources` 和 `metadata_confidence`：title 来自 `mineru` 且为 `high`，creators 来自 `filename-title-prefix` 且为 `medium`，year 来自 `filename` 且为 `medium`。
   - `conversion.json` 使用 schema version 1 诊断格式，包含 `converter=mineru`、`state=done`、`attempt=1`、`raw_output_dir=raw/mineru`、`markdown=paper.md`、`images=images`。
   - `indexes/jobs.jsonl` 记录了 `conversion-started` 和 `conversion-finished` 事件。
+- 2026-05-21 AI repair 实现：
+  - 增加 `paper repair`，支持 `--target metadata|markdown|all`、`--dry-run` 和 `--json`。
+  - 增加 OpenAI-compatible chat completions provider，可从 `PAPER_AI_*` 或 `paper-cli.yaml` 配置；密钥只从环境变量读取。
+  - 元数据修复使用来自 `paper.yaml`、bundle 名称、来源文件名、转换状态、identifier candidates 和 Markdown 开头的有界证据；安全应用的字段会标记 `metadata_sources=ai-repair`。
+  - Markdown 修复会拆分 `paper.md`，只发送可疑块，应用 exact-match patch，并把 mismatch 记录为 warning。
+  - 实际写入会创建 bundle-local backup、写 latest-only `repair.json`，并重建 `indexes/papers.jsonl`。
+  - 增加 fake-provider 测试，覆盖配置、请求 payload、无效 JSON、缺少配置、dry-run、metadata 保护、Markdown patch、mismatch 拒绝、backup 创建和 index rebuild。
+- 2026-05-21 双模照相论文全流程 smoke test：
+  - 将 `/Users/yuxiangzhang/Documents/research/paper/双模照相` 下全部 12 个 PDF 复制到 ignored 测试输入 `paper-libraries/full-smoke-input/双模照相`。
+  - 将复制出的目录导入 `paper-libraries/full-smoke-library-clean`，collection 为 `双模照相`；重复 PDF hash 自动合并为 7 个唯一 paper bundle。
+  - 真实 MinerU 转换 7 个 bundle 全部成功：`status` 返回 `converted=7`、`failed=0`、`pending=0`；`doctor` 未报告问题。
+  - 确认每个转换后 bundle 都包含 `original.pdf`、`paper.md`、`images/`、`raw/mineru/`、`conversion.json` 和 `notes/README.md`；`jobs.jsonl` 有 14 条 start/finish 事件，`papers.jsonl` 有 7 行。
+  - 使用已配置的 OpenAI-compatible provider 运行 `paper repair --target metadata --dry-run --json`，返回 `ok=true`，且未写入 `repair.json`。
+  - 随后运行 `paper repair --json`，7 个 bundle 全部完成且 `failed=[]`；写入 7 个 `repair.json`，只为实际变更文件创建 12 个备份，之后 `status` / `doctor` 仍然干净。
+  - 第一次完整 repair 尝试中，一个 provider 响应提前结束，暴露出 metadata 已写入但 `repair.json` 未写的半完成问题；已增加回归测试，并改为先收集所有选中 target 的结果，成功后再写 bundle 文件。
 
 ## 已确认 MVP
 

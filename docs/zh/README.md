@@ -16,3 +16,4 @@
 - [contracts/cli-json.zh.md](contracts/cli-json.zh.md)：CLI JSON 输出契约。
 - [contracts/source-adapters.zh.md](contracts/source-adapters.zh.md)：Source adapter 契约。
 - [smoke-tests/mineru.zh.md](smoke-tests/mineru.zh.md)：真实 MinerU smoke test 清单。
+- [smoke-tests/ai-repair.zh.md](smoke-tests/ai-repair.zh.md)：真实 AI repair smoke test 清单。

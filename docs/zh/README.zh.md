@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态和运行文献库检查。
+本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，以及通过 OpenAI-compatible provider 修复已转换 bundle。
 
 已经确认的 MVP 方向：
 
@@ -36,6 +36,7 @@ paper convert --pending
 paper list
 paper status
 paper doctor
+paper repair
 ```
 
 ## 开发安装
@@ -74,6 +75,18 @@ python3 -m paper_cli --library /path/to/paper-library doctor --json
 python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
 ```
 
+AI 修复使用 OpenAI-compatible chat completions provider，优先从环境变量读取：
+
+```bash
+export PAPER_AI_BASE_URL="https://api.openai.com/v1"
+export PAPER_AI_API_KEY="..."
+export PAPER_AI_MODEL="gpt-4.1-mini"
+python3 -m paper_cli --library /path/to/paper-library repair --target metadata --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library repair --json
+```
+
+`paper repair` 默认等价于 `--target all`。它可以修复 `paper.yaml` 中的元数据和 `paper.md` 中明显可疑的 Markdown 抽取缺陷；实际写入时会生成 `repair.json`，在修改前创建 bundle 内备份，并重建 `indexes/papers.jsonl`。
+
 ## 文献库结构
 
 ```text
@@ -87,6 +100,8 @@ paper-library/
         paper.md
         images/
         conversion.json
+        repair.json
+        backups/
         notes/
           README.md
   inbox/
@@ -96,6 +111,8 @@ paper-library/
       paper.md
       images/
       conversion.json
+      repair.json
+      backups/
       notes/
         README.md
   indexes/
@@ -146,5 +163,6 @@ MVP：
 - [cli-json.zh.md](contracts/cli-json.zh.md)
 - [source-adapters.zh.md](contracts/source-adapters.zh.md)
 - [mineru.zh.md](smoke-tests/mineru.zh.md)
+- [ai-repair.zh.md](smoke-tests/ai-repair.zh.md)
 
 本地测试文献库可以放在 `paper-libraries/` 下。该目录已被 git 忽略，因为里面可能包含复制后的 PDF 和 MinerU 输出。

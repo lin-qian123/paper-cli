@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Local-folder MVP implemented and covered by tests. Engineering work should first stabilize contracts and tooling without adding unnecessary platform complexity.
+Local-folder MVP implemented and covered by tests. The first built-in AI repair pass is implemented for OpenAI-compatible providers; next work should validate real-provider behavior and harden edge cases before expanding source adapters.
 
 ## Engineering Phase
 
@@ -22,16 +22,20 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
 
 ## AI Repair Phase
 
-- [ ] Implement `paper repair` with default `--target all`.
-- [ ] Add `--target metadata`, `--target markdown`, and `--dry-run`.
-- [ ] Add an OpenAI-compatible provider configured by environment variables and optional `paper-cli.yaml` settings.
-- [ ] Build bounded metadata evidence packets from `paper.yaml`, bundle name, PDF filename, conversion state, and the Markdown head.
-- [ ] Apply safe metadata repairs with `metadata_sources=ai-repair` and confidence-aware merge rules.
-- [ ] Split `paper.md` into blocks and send only suspicious blocks to AI for repair.
-- [ ] Create per-bundle backups before writing `paper.yaml` or `paper.md`.
-- [ ] Write `repair.json` with applied changes, warnings, provider, model, and timestamps.
-- [ ] Add fake-provider tests for provider errors, invalid JSON, dry-run behavior, metadata repair, Markdown block patching, and backup creation.
-- [ ] Add a manual real-provider smoke-test checklist under `docs/smoke-tests/`.
+- [x] Implement `paper repair` with default `--target all`.
+- [x] Add `--target metadata`, `--target markdown`, and `--dry-run`.
+- [x] Add an OpenAI-compatible provider configured by environment variables and optional `paper-cli.yaml` settings.
+- [x] Build bounded metadata evidence packets from `paper.yaml`, bundle name, PDF filename, conversion state, and the Markdown head.
+- [x] Apply safe metadata repairs with `metadata_sources=ai-repair` and confidence-aware merge rules.
+- [x] Split `paper.md` into blocks and send only suspicious blocks to AI for repair.
+- [x] Create per-bundle backups before writing `paper.yaml` or `paper.md`.
+- [x] Write `repair.json` with applied changes, warnings, provider, model, and timestamps.
+- [x] Add fake-provider tests for provider errors, invalid JSON, dry-run behavior, metadata repair, Markdown block patching, and backup creation.
+- [x] Add a manual real-provider smoke-test checklist under `docs/smoke-tests/`.
+- [ ] Run a real-provider AI repair smoke test on a converted non-sensitive PDF.
+- [ ] Add an optional bundle selector for targeted repair after library-wide behavior is validated.
+- [ ] Decide whether repair history should stay latest-only or become append-only JSONL.
+- [x] Fix `paper repair --target all` so a later Markdown provider failure cannot leave metadata half-written for the same bundle.
 
 ## Validation Log
 
@@ -56,6 +60,21 @@ Local-folder MVP implemented and covered by tests. Engineering work should first
   - `paper.yaml` included `metadata_sources` and `metadata_confidence`: title from `mineru` with `high`, creators from `filename-title-prefix` with `medium`, year from `filename` with `medium`.
   - `conversion.json` used diagnostic schema version 1 with `converter=mineru`, `state=done`, `attempt=1`, `raw_output_dir=raw/mineru`, `markdown=paper.md`, and `images=images`.
   - `indexes/jobs.jsonl` recorded `conversion-started` and `conversion-finished` events.
+- 2026-05-21 AI repair implementation:
+  - Added `paper repair` with `--target metadata|markdown|all`, `--dry-run`, and `--json`.
+  - Added OpenAI-compatible chat completions provider configuration from `PAPER_AI_*` or `paper-cli.yaml` with secrets read from environment variables only.
+  - Metadata repair uses bounded evidence from `paper.yaml`, bundle name, source filename, conversion state, identifier candidates, and Markdown head; safe applied changes mark `metadata_sources` as `ai-repair`.
+  - Markdown repair splits `paper.md` into blocks, sends only suspicious blocks, applies exact-match patches, and records skipped mismatches as warnings.
+  - Applied runs create bundle-local backups, write latest-only `repair.json`, and rebuild `indexes/papers.jsonl`.
+  - Added fake-provider tests for config, request payloads, invalid JSON, missing config, dry-run behavior, metadata protection, Markdown patching, mismatch rejection, backup creation, and index rebuild.
+- 2026-05-21 dual-modality paper full smoke test:
+  - Copied all 12 PDFs from `/Users/yuxiangzhang/Documents/research/paper/双模照相` into ignored test input `paper-libraries/full-smoke-input/双模照相`.
+  - Imported the copied folder into `paper-libraries/full-smoke-library-clean` under collection `双模照相`; duplicate PDF hashes collapsed to 7 unique paper bundles.
+  - Real MinerU conversion completed for all 7 bundles: `status` reported `converted=7`, `failed=0`, `pending=0`; `doctor` reported no issues.
+  - Verified each converted bundle contains `original.pdf`, `paper.md`, `images/`, `raw/mineru/`, `conversion.json`, and `notes/README.md`; `jobs.jsonl` had 14 start/finish events and `papers.jsonl` had 7 rows.
+  - `paper repair --target metadata --dry-run --json` with the configured OpenAI-compatible provider returned `ok=true` and wrote no `repair.json` files.
+  - `paper repair --json` then completed for all 7 bundles with `failed=[]`; it wrote 7 `repair.json` files, created 12 backup files only for changed files, and `status` / `doctor` remained clean.
+  - During the first full repair attempt, one provider response ended prematurely after metadata had already been written but before `repair.json`; added a regression test and changed repair orchestration to collect all selected target results before writing bundle files.
 
 ## Approved MVP
 
