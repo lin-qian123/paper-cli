@@ -36,6 +36,9 @@
 - [ ] 在 library-wide 行为验证后，增加可选 bundle selector。
 - [ ] 决定 repair 历史保持 latest-only，还是扩展为 append-only JSONL。
 - [x] 修复 `paper repair --target all`：后续 Markdown provider 失败时，不能让同一个 bundle 留下 metadata 半写入状态。
+- [x] 编写 suspicious block 缺陷开发记录，并实现保守的 reason/policy 分类。
+- [ ] 将冗长的 `review_only` Markdown warning 按 reason/count 聚合，同时保留详细 block id。
+- [ ] 为当前 `review_only` 的长段落 OCR 候选增加后续 review/apply 路径。
 
 ## 验证记录
 
@@ -75,6 +78,13 @@
   - 使用已配置的 OpenAI-compatible provider 运行 `paper repair --target metadata --dry-run --json`，返回 `ok=true`，且未写入 `repair.json`。
   - 随后运行 `paper repair --json`，7 个 bundle 全部完成且 `failed=[]`；写入 7 个 `repair.json`，只为实际变更文件创建 12 个备份，之后 `status` / `doctor` 仍然干净。
   - 第一次完整 repair 尝试中，一个 provider 响应提前结束，暴露出 metadata 已写入但 `repair.json` 未写的半完成问题；已增加回归测试，并改为先收集所有选中 target 的结果，成功后再写 bundle 文件。
+- 2026-05-21 suspicious-block 优化：
+  - 新增 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`，记录当前缺陷、策略设计和验证结果。
+  - 增加结构化 suspicious finding，包含 `reasons` 和 `policy`：`auto_repair`、`review_only`、`structural_warning`。
+  - Markdown repair 现在只把 `auto_repair` block 发送给 AI；公式、表格、参考文献、数学密集 block 只记录为 `review_only` warning，不自动修。
+  - 增加 HTML table、reference section、常见 OCR 词、重复片段、坏图片、长 OCR 段落的检测。
+  - `make verify` 通过，测试数为 51。
+  - 使用 `paper-libraries/full-smoke-library-optimized-v2` 做真实 provider 复测，结果 `failed=[]`；相比上一轮 clean 结果，patch mismatch warning 从 3 降到 1，protected-block warning 从 4 降到 0，风险较高的数学/公式发现转为明确的 `review_only` 记录。
 
 ## 已确认 MVP
 

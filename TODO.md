@@ -36,6 +36,9 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 - [ ] Add an optional bundle selector for targeted repair after library-wide behavior is validated.
 - [ ] Decide whether repair history should stay latest-only or become append-only JSONL.
 - [x] Fix `paper repair --target all` so a later Markdown provider failure cannot leave metadata half-written for the same bundle.
+- [x] Write a development record for suspicious-block weaknesses and implement conservative reason/policy classification.
+- [ ] Aggregate verbose `review_only` Markdown warnings by reason/count while keeping detailed block IDs available.
+- [ ] Add a future review/apply path for long prose OCR candidates that are currently `review_only`.
 
 ## Validation Log
 
@@ -75,6 +78,13 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
   - `paper repair --target metadata --dry-run --json` with the configured OpenAI-compatible provider returned `ok=true` and wrote no `repair.json` files.
   - `paper repair --json` then completed for all 7 bundles with `failed=[]`; it wrote 7 `repair.json` files, created 12 backup files only for changed files, and `status` / `doctor` remained clean.
   - During the first full repair attempt, one provider response ended prematurely after metadata had already been written but before `repair.json`; added a regression test and changed repair orchestration to collect all selected target results before writing bundle files.
+- 2026-05-21 suspicious-block optimization:
+  - Added `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` documenting current weaknesses, policy design, and validation results.
+  - Added structured suspicious findings with `reasons` and `policy`: `auto_repair`, `review_only`, and `structural_warning`.
+  - Markdown repair now sends only `auto_repair` blocks to AI; formula/table/reference/math-heavy blocks are recorded as `review_only` warnings instead of being auto-repaired.
+  - Added detection for HTML tables, reference sections, common OCR words, repeated phrases, broken images, and long OCR paragraphs that should not be auto-sent.
+  - `make verify` passed with 51 tests.
+  - Real-provider retest on `paper-libraries/full-smoke-library-optimized-v2` completed with `failed=[]`; compared with the previous clean run, patch mismatch warnings fell from 3 to 1 and protected-block warnings fell from 4 to 0, while risky math/formula findings became explicit `review_only` records.
 
 ## Approved MVP
 

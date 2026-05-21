@@ -351,6 +351,33 @@ def test_repair_markdown_rejects_patch_mismatch(tmp_path, monkeypatch):
     assert "Patch old_text mismatch" in repair["markdown"]["warnings"][0]
 
 
+def test_repair_markdown_does_not_send_review_only_formula_to_provider(tmp_path, monkeypatch):
+    library = tmp_path / "library"
+    bundle = make_converted_bundle(library)
+    (bundle / "paper.md").write_text(
+        "$$\n"
+        "s l o p e = { \\frac { A t t _ { n } } { A t t _ { X } } }\n"
+        "$$\n",
+        encoding="utf-8",
+    )
+
+    def fake_post(url, **kwargs):
+        raise AssertionError("review-only formula block should not be sent to provider")
+
+    monkeypatch.setenv("PAPER_AI_BASE_URL", "http://example.test/v1")
+    monkeypatch.setenv("PAPER_AI_API_KEY", "key")
+    monkeypatch.setenv("PAPER_AI_MODEL", "model-a")
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", fake_post)
+
+    assert main(["--library", str(library), "repair", "--target", "markdown"]) == 0
+
+    repair = json.loads((bundle / "repair.json").read_text(encoding="utf-8"))
+    assert repair["markdown"]["changed"] is False
+    assert repair["markdown"]["blocks_changed"] == 0
+    assert any("review_only" in warning for warning in repair["markdown"]["warnings"])
+    assert not (bundle / "backups").exists()
+
+
 def test_repair_all_does_not_partially_write_metadata_when_markdown_provider_fails(
     tmp_path, monkeypatch
 ):

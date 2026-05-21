@@ -11,7 +11,13 @@ from paper_cli.convert import maybe_rename_bundle
 from paper_cli.indexes import find_paper_dirs, rebuild_papers_index
 from paper_cli.models import PaperRecord, read_paper, utc_now_iso, write_paper
 
-from .markdown_blocks import MarkdownBlock, render_blocks, split_markdown_blocks, suspicious_blocks
+from .markdown_blocks import (
+    MarkdownBlock,
+    render_blocks,
+    repairable_suspicious_blocks,
+    split_markdown_blocks,
+    suspicious_findings,
+)
 from .providers import AIProvider
 
 SUPPORTED_METADATA_FIELDS = {"title", "creators", "year", "doi", "language"}
@@ -278,8 +284,15 @@ def repair_markdown(
         return result
     markdown = markdown_path.read_text(encoding="utf-8")
     blocks = split_markdown_blocks(markdown)
-    candidates = suspicious_blocks(blocks, bundle_dir)
-    result.blocks_checked = len(candidates)
+    findings = suspicious_findings(blocks, bundle_dir)
+    candidates = repairable_suspicious_blocks(findings)
+    result.blocks_checked = len(findings)
+    for finding in findings:
+        if finding.policy != "auto_repair":
+            result.warnings.append(
+                f"{finding.policy} suspicious block skipped: {finding.block.id} "
+                f"({', '.join(finding.reasons)})"
+            )
     if not candidates:
         return result
     response = provider.complete_json(_markdown_messages(candidates), schema_name="markdown-repair")
