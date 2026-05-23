@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,7 +21,51 @@ class Issue:
         return {"code": self.code, "path": self.path, "message": self.message}
 
 
-def run_doctor(library_dir: Path) -> list[Issue]:
+def _strict_conversion_issues(library_dir: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    for bundle_dir in find_paper_dirs(library_dir):
+        record = read_paper(bundle_dir)
+        state = record.status.get("conversion")
+        if state == "failed":
+            issues.append(Issue("failed-conversion", str(bundle_dir), "Conversion failed"))
+        elif state != "done":
+            issues.append(Issue("pending-conversion", str(bundle_dir), "Conversion is not done"))
+
+    jobs_path = library_dir / "indexes" / "jobs.jsonl"
+    if not jobs_path.exists():
+        return issues
+    started: list[dict] = []
+    finished_keys: set[tuple[str, int]] = set()
+    for line_number, line in enumerate(jobs_path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as exc:
+            issues.append(Issue("invalid-job-json", f"{jobs_path}:{line_number}", str(exc)))
+            continue
+        key = (str(event.get("paper_id") or ""), int(event.get("attempt") or 0))
+        if event.get("event") == "conversion-started":
+            started.append(event)
+        elif event.get("event") == "conversion-finished":
+            finished_keys.add(key)
+    for event in started:
+        key = (str(event.get("paper_id") or ""), int(event.get("attempt") or 0))
+        if key not in finished_keys:
+            issues.append(
+                Issue(
+                    "dangling-conversion-job",
+                    str(jobs_path),
+                    (
+                        f"Started conversion has no matching finish event: "
+                        f"{event.get('paper_id')} attempt {event.get('attempt')}"
+                    ),
+                )
+            )
+    return issues
+
+
+def run_doctor(library_dir: Path, *, strict: bool = False) -> list[Issue]:
     issues: list[Issue] = []
     seen_ids: dict[str, Path] = {}
     for bundle_dir in find_paper_dirs(library_dir):
@@ -76,6 +121,8 @@ def run_doctor(library_dir: Path) -> list[Issue]:
                     f"Index has {indexed_count}, actual {actual_count}",
                 )
             )
+    if strict:
+        issues.extend(_strict_conversion_issues(library_dir))
     return issues
 
 

@@ -48,6 +48,14 @@ The MVP imports local PDF files or folders, copies PDFs into the library, conver
 - Create bundle-local backups before applying changes and record each applied run in `repair.json`.
 - Keep full-paper AI passes, identifier lookup services, and automatic repair during import/convert out of this first AI layer unless a later design approves them.
 
+`paper extract summary` is the second built-in AI layer. It should remain an extraction layer, not a repair layer:
+
+- Read only converted bundles with `paper.md`; do not modify source PDFs, `paper.md`, `paper.yaml`, or `repair.json`.
+- Generate article skeleton outputs under `extracts/summary/`: `summary.json`, `summary.md`, and `source-map.json`.
+- Preserve source traceability through stable block IDs, line ranges, text hashes, section paths, section `block_ids`, and graph `source_block_ids`.
+- Use CLI-internal provider concurrency for block-batch summaries, then aggregate section summaries and a conservative lightweight graph.
+- Skip non-main content such as references, footnotes, funding, copyright/license text, page numbers, obvious OCR noise, pure formulas, pure tables, and pure images.
+
 ## Development Rules
 
 - Before creating new features or changing behavior, use Superpowers brainstorming for design and obtain user approval.

@@ -6,9 +6,13 @@ Its purpose is to make research papers easier for AI agents to manage and read. 
 
 ## Current Status
 
-Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, and repairing converted bundles with an OpenAI-compatible AI provider.
+Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, repairing converted bundles with an OpenAI-compatible AI provider, and extracting AI article skeleton summaries from converted Markdown.
+
+Recent real-library hardening added MinerU network retry/backoff, a per-file MinerU wait limit, interrupted-conversion job cleanup, a strict doctor mode for batch audits, and guards against OCR-damaged MinerU titles causing bad bundle renames.
 
 The built-in AI repair phase is now usable as a conservative post-conversion repair layer. It can repair metadata, rename bundles from repaired metadata, and patch low-risk Markdown extraction defects. Formula-heavy, table, reference, and math-heavy blocks are recorded as review-only warnings instead of being automatically rewritten.
+
+The built-in AI extract summary phase is usable as a structured reading layer. `paper extract summary` creates block-level summaries, section-level skeletons, and a lightweight knowledge graph under `extracts/summary/`, with `source-map.json` preserving block IDs, line ranges, text hashes, and section paths for future side-by-side reading UIs.
 
 The approved MVP direction is:
 
@@ -38,7 +42,9 @@ paper convert --pending
 paper list
 paper status
 paper doctor
+paper doctor --strict
 paper repair
+paper extract summary
 ```
 
 ## Install For Development
@@ -67,9 +73,12 @@ python3 -m paper_cli --library /path/to/paper-library import /path/to/papers --c
 python3 -m paper_cli --library /path/to/paper-library convert --pending --json
 python3 -m paper_cli --library /path/to/paper-library status --json
 python3 -m paper_cli --library /path/to/paper-library doctor --json
+python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
 ```
 
-Real MinerU conversion reads the API key from `MINERU_API_KEY`.
+Real MinerU conversion reads the API key from `MINERU_API_KEY`. Network calls are retried, and long-running remote tasks are bounded by `MINERU_MAX_WAIT_SECONDS`, defaulting to 30 minutes per file.
+
+`paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions and dangling conversion job history, which is useful after batch conversion runs.
 
 For tests and dry runs, `convert` can use fixture output instead of the network:
 
@@ -89,6 +98,17 @@ python3 -m paper_cli --library /path/to/paper-library repair --json
 
 `paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and low-risk suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`. Higher-risk scientific content is preserved and recorded as `review_only` warnings for later inspection.
 
+AI extract summary uses the same provider configuration and writes extraction outputs without modifying the paper source files:
+
+```bash
+python3 -m paper_cli --library /path/to/paper-library extract summary --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library extract summary --workers 16 --json
+python3 -m paper_cli --library /path/to/paper-library extract summary --paper-workers 16 --max-requests 500 --retries 2 --json
+python3 -m paper_cli --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
+```
+
+`paper extract summary` defaults to converted bundles that do not already have `extracts/summary/summary.json`. Use `--force` to regenerate existing outputs, `--paper`, `--collection`, or `--limit` to control scope. Concurrency has three controls: `--paper-workers` for paper-level parallelism, `--workers` for per-paper block-batch parallelism, and `--max-requests` as a global provider request cap. `--paper-workers` and `--workers` default to `16`; `--max-requests` defaults to `500`. Per-paper workers are capped to the current paper count, and block workers are capped to the current paper's block-batch count. Provider requests are retried with `--retries` retries, default `2`, with a fixed 10-second wait between attempts. The command writes `summary.json`, `summary.md`, and `source-map.json`.
+
 ## Library Shape
 
 ```text
@@ -103,6 +123,11 @@ paper-library/
         images/
         conversion.json
         repair.json
+        extracts/
+          summary/
+            summary.json
+            summary.md
+            source-map.json
         backups/
         notes/
           README.md
@@ -114,6 +139,11 @@ paper-library/
       images/
       conversion.json
       repair.json
+      extracts/
+        summary/
+          summary.json
+          summary.md
+          source-map.json
       backups/
       notes/
         README.md
@@ -156,7 +186,7 @@ Later phases:
 
 ## Development Notes
 
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
+See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
 
 Contract docs:
 

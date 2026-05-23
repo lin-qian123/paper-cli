@@ -38,6 +38,24 @@
 
 MVP 导入本地 PDF 文件或文件夹，将 PDF 复制进文献库，用 MinerU 转换待处理论文，写入 `paper.md` 和 `images/`，更新元数据，并在获得更好元数据后自动重命名 paper bundle。
 
+## 当前 Post-MVP AI 范围
+
+`paper repair` 是第一层内置 AI 功能，应保持为有边界的修复层：
+
+- 只使用 OpenAI-compatible chat completions provider，直到后续明确设计其他 provider family。
+- provider 设置从环境变量或 `paper-cli.yaml` 读取，密钥只从环境变量读取。
+- 从本地 bundle 证据修复元数据和明显 Markdown 抽取缺陷；不翻译、不总结、不做风格改写。
+- 应用变更前创建 bundle 内备份，并在 `repair.json` 记录应用结果。
+- 第一阶段不默认接入 import/convert，也不做全文 AI pass 或外部 identifier lookup。
+
+`paper extract summary` 是第二层内置 AI 功能，应保持为抽取层，而不是修复层：
+
+- 只读取已转换且包含 `paper.md` 的 bundle；不修改源 PDF、`paper.md`、`paper.yaml` 或 `repair.json`。
+- 在 `extracts/summary/` 下生成文章骨架输出：`summary.json`、`summary.md` 和 `source-map.json`。
+- 通过稳定 block ID、行号、文本 hash、section path、章节 `block_ids` 和图谱 `source_block_ids` 保留来源追溯。
+- 使用 CLI 内部 provider 并发处理 block batch，再聚合章节摘要和保守轻量知识图谱。
+- 跳过 references、footnotes、funding、copyright/license、页码、明显 OCR 噪声、纯公式、纯表格、纯图片等非主体内容。
+
 ## 开发规则
 
 - 创建新功能或改变行为前，先使用 Superpowers brainstorming 做设计，并获得用户确认。

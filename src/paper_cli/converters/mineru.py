@@ -5,6 +5,7 @@ import os
 import shutil
 import time
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 import requests
@@ -16,13 +17,26 @@ class MinerUConverter:
     name = "mineru"
 
     def __init__(
-        self, api_key: str | None = None, api_base: str | None = None, poll_interval: float = 3.0
+        self,
+        api_key: str | None = None,
+        api_base: str | None = None,
+        poll_interval: float = 3.0,
+        max_wait_seconds: float | None = None,
+        max_network_attempts: int = 3,
+        retry_wait: float = 5.0,
     ):
         self.api_key = api_key or os.environ.get("MINERU_API_KEY")
         self.api_base = (
             api_base or os.environ.get("MINERU_API_BASE") or "https://mineru.net/api/v4"
         ).rstrip("/")
         self.poll_interval = poll_interval
+        self.max_wait_seconds = float(
+            max_wait_seconds
+            if max_wait_seconds is not None
+            else os.environ.get("MINERU_MAX_WAIT_SECONDS", 30 * 60)
+        )
+        self.max_network_attempts = max(1, int(max_network_attempts))
+        self.retry_wait = retry_wait
 
     @property
     def headers(self) -> dict[str, str]:
@@ -46,11 +60,13 @@ class MinerUConverter:
 
     def _submit_and_wait(self, source_pdf: Path) -> str | None:
         file_info = {"name": source_pdf.name, "size": source_pdf.stat().st_size}
-        response = requests.post(
-            f"{self.api_base}/file-urls/batch",
-            json={"files": [file_info]},
-            headers=self.headers,
-            timeout=30,
+        response = self._network_call(
+            lambda: requests.post(
+                f"{self.api_base}/file-urls/batch",
+                json={"files": [file_info]},
+                headers=self.headers,
+                timeout=30,
+            )
         )
         response.raise_for_status()
         payload = response.json()
@@ -60,12 +76,23 @@ class MinerUConverter:
         upload_url = payload["data"]["file_urls"][0]
 
         with source_pdf.open("rb") as handle:
-            upload = requests.put(upload_url, data=handle, timeout=120)
+            def upload_call() -> requests.Response:
+                handle.seek(0)
+                return requests.put(upload_url, data=handle, timeout=120)
+
+            upload = self._network_call(upload_call)
         upload.raise_for_status()
 
         polling_url = f"{self.api_base}/extract-results/batch/{batch_id}"
+        started_at = time.monotonic()
         while True:
-            poll = requests.get(polling_url, headers=self.headers, timeout=30)
+            if time.monotonic() - started_at >= self.max_wait_seconds:
+                raise TimeoutError(
+                    f"MinerU task timed out after {self.max_wait_seconds:g} seconds"
+                )
+            poll = self._network_call(
+                lambda: requests.get(polling_url, headers=self.headers, timeout=30)
+            )
             poll.raise_for_status()
             content = poll.json()
             if content.get("code") != 0:
@@ -83,7 +110,7 @@ class MinerUConverter:
             time.sleep(self.poll_interval)
 
     def _download_and_normalize(self, zip_url: str, output_dir: Path) -> ConversionResult:
-        response = requests.get(zip_url, timeout=120)
+        response = self._network_call(lambda: requests.get(zip_url, timeout=120))
         response.raise_for_status()
         output_dir.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
@@ -131,3 +158,19 @@ class MinerUConverter:
                 continue
             if directory.is_dir() and directory != output_dir and not any(directory.iterdir()):
                 directory.rmdir()
+
+    def _network_call(self, call: Callable[[], requests.Response]) -> requests.Response:
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_network_attempts + 1):
+            try:
+                return call()
+            except Exception as exc:
+                last_error = exc
+                if attempt == self.max_network_attempts:
+                    break
+                if self.retry_wait > 0:
+                    time.sleep(self.retry_wait)
+        raise RuntimeError(
+            f"MinerU network request failed after {self.max_network_attempts} attempts: "
+            f"{last_error}"
+        ) from last_error

@@ -3,6 +3,7 @@ import json
 import zipfile
 
 from paper_cli.cli import main
+from paper_cli.convert import convert_pending
 from paper_cli.converters.local_zip import LocalFixtureConverter
 from paper_cli.converters.mineru import MinerUConverter
 from paper_cli.models import read_paper, write_paper
@@ -155,6 +156,74 @@ def test_convert_pending_records_failure_and_retries_failed_bundle(tmp_path):
         for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
     ]
     assert [event["state"] for event in events] == ["running", "failed", "running", "done"]
+
+
+def test_convert_pending_records_interrupted_job_before_reraising(tmp_path):
+    class InterruptingConverter:
+        name = "interrupting"
+
+        def convert(self, source_pdf, output_dir):
+            raise KeyboardInterrupt()
+
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    try:
+        convert_pending(library, InterruptingConverter())
+    except KeyboardInterrupt:
+        pass
+    else:
+        raise AssertionError("Expected KeyboardInterrupt")
+
+    bundle = library / "inbox" / "Unknown"
+    record = read_paper(bundle)
+    assert record.status["conversion"] == "failed"
+    payload = json.loads((bundle / "conversion.json").read_text(encoding="utf-8"))
+    assert payload["state"] == "interrupted"
+    events = [
+        json.loads(line)
+        for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["state"] for event in events] == ["running", "interrupted"]
+    assert events[-1]["ok"] is False
+
+
+def test_convert_pending_rejects_bad_ocr_title_for_rename(tmp_path):
+    library = tmp_path / "library"
+    pdf = (
+        tmp_path
+        / "Bargmann V. et al. - 1959 - Precession of the Polarization of Particles Moving in a Homogeneous Electromagnetic Field.pdf"
+    )
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text(
+        "# PRECESSION OF THE POLARIZATION OF PARTICLES MOVING IN A HOMOGENEOUSELECTROMAGNETIC FIELD\\\n",
+        encoding="utf-8",
+    )
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    original_name = (
+        "Bargmann V. et al. - 1959 - Precession of the Polarization of Particles Moving in a "
+        "Homogeneous Electromagnetic Field"
+    )
+    bundle = library / "inbox" / original_name
+    record = read_paper(bundle)
+    assert bundle.exists()
+    assert record.status["naming"] == "review"
+    assert record.metadata["title"] == (
+        "Precession of the Polarization of Particles Moving in a Homogeneous Electromagnetic Field"
+    )
 
 
 def test_convert_pending_infers_creator_from_filename_title_prefix(tmp_path):
@@ -330,6 +399,81 @@ def test_mineru_converter_normalizes_mocked_zip(tmp_path, monkeypatch):
     assert result.ok is True
     assert (tmp_path / "out" / "paper.md").read_text(encoding="utf-8") == "# Converted\n"
     assert (tmp_path / "out" / "images").is_dir()
+
+
+def test_mineru_converter_retries_transient_upload_failure(tmp_path, monkeypatch):
+    pdf = tmp_path / "source.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as archive:
+        archive.writestr("result/full.md", "# Converted\n")
+    put_calls = {"count": 0}
+
+    def fake_post(*args, **kwargs):
+        return FakeResponse(
+            {"code": 0, "data": {"batch_id": "batch-1", "file_urls": ["https://upload.example"]}}
+        )
+
+    def fake_put(*args, **kwargs):
+        put_calls["count"] += 1
+        if put_calls["count"] == 1:
+            raise TimeoutError("temporary upload timeout")
+        return FakeResponse({})
+
+    def fake_get(url, *args, **kwargs):
+        if "extract-results" in url:
+            return FakeResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "extract_result": [
+                            {"state": "done", "full_zip_url": "https://download.example/result.zip"}
+                        ]
+                    },
+                }
+            )
+        return FakeResponse(content=zip_buffer.getvalue())
+
+    monkeypatch.setattr("paper_cli.converters.mineru.requests.post", fake_post)
+    monkeypatch.setattr("paper_cli.converters.mineru.requests.put", fake_put)
+    monkeypatch.setattr("paper_cli.converters.mineru.requests.get", fake_get)
+
+    result = MinerUConverter(api_key="test-key", poll_interval=0, retry_wait=0).convert(
+        pdf, tmp_path / "out"
+    )
+
+    assert result.ok is True
+    assert put_calls["count"] == 2
+
+
+def test_mineru_converter_times_out_long_running_task(tmp_path, monkeypatch):
+    pdf = tmp_path / "source.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+
+    def fake_post(*args, **kwargs):
+        return FakeResponse(
+            {"code": 0, "data": {"batch_id": "batch-1", "file_urls": ["https://upload.example"]}}
+        )
+
+    def fake_put(*args, **kwargs):
+        return FakeResponse({})
+
+    def fake_get(*args, **kwargs):
+        return FakeResponse({"code": 0, "data": {"extract_result": [{"state": "running"}]}})
+
+    monkeypatch.setattr("paper_cli.converters.mineru.requests.post", fake_post)
+    monkeypatch.setattr("paper_cli.converters.mineru.requests.put", fake_put)
+    monkeypatch.setattr("paper_cli.converters.mineru.requests.get", fake_get)
+
+    result = MinerUConverter(
+        api_key="test-key",
+        poll_interval=0,
+        max_wait_seconds=0,
+        retry_wait=0,
+    ).convert(pdf, tmp_path / "out")
+
+    assert result.ok is False
+    assert "timed out" in (result.error or "")
 
 
 def test_mineru_converter_moves_sidecars_to_raw_dir(tmp_path, monkeypatch):

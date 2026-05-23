@@ -6,9 +6,13 @@
 
 ## 当前状态
 
-本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，以及通过 OpenAI-compatible provider 修复已转换 bundle。
+本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，通过 OpenAI-compatible provider 修复已转换 bundle，并从转换后的 Markdown 中抽取 AI 文章骨架摘要。
+
+最近一次真实文献库加固补上了 MinerU 网络重试/退避、单篇 MinerU 等待上限、转换中断后的 job 收尾、用于批处理审计的 strict doctor 模式，以及防止 OCR 损坏标题导致错误重命名的质量门禁。
 
 内置 AI repair 阶段已达到阶段性可用状态。它可以修复元数据、根据修复后的元数据同步重命名 bundle，并对低风险 Markdown 抽取缺陷做自动 patch。公式密集、表格、参考文献和数学密集 block 会记录为 `review_only` warning，而不是自动改写。
+
+内置 AI extract summary 阶段已可用。`paper extract summary` 会在 `extracts/summary/` 下生成 block 级总结、section 级骨架和轻量知识图谱，并通过 `source-map.json` 保存 block id、行号、文本 hash 和章节路径，方便后续做左右分栏阅读界面。
 
 已经确认的 MVP 方向：
 
@@ -38,7 +42,9 @@ paper convert --pending
 paper list
 paper status
 paper doctor
+paper doctor --strict
 paper repair
+paper extract summary
 ```
 
 ## 开发安装
@@ -67,9 +73,12 @@ python3 -m paper_cli --library /path/to/paper-library import /path/to/papers --c
 python3 -m paper_cli --library /path/to/paper-library convert --pending --json
 python3 -m paper_cli --library /path/to/paper-library status --json
 python3 -m paper_cli --library /path/to/paper-library doctor --json
+python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
 ```
 
-真实 MinerU 转换从环境变量 `MINERU_API_KEY` 读取 API key。
+真实 MinerU 转换从环境变量 `MINERU_API_KEY` 读取 API key。网络请求会自动重试，远端长时间运行任务受 `MINERU_MAX_WAIT_SECONDS` 限制，默认每篇 30 分钟。
+
+`paper doctor` 默认检查文献库结构完整性。`paper doctor --strict` 会额外报告 pending/failed 转换和悬空 conversion job，适合批量转换后的成功率审计。
 
 测试或 dry run 可以用 fixture 输出，不走网络：
 
@@ -89,6 +98,17 @@ python3 -m paper_cli --library /path/to/paper-library repair --json
 
 `paper repair` 默认等价于 `--target all`。它可以修复 `paper.yaml` 中的元数据和 `paper.md` 中低风险的可疑 Markdown 抽取缺陷；实际写入时会生成 `repair.json`，在修改前创建 bundle 内备份，并重建 `indexes/papers.jsonl`。较高风险的科学内容会保留原文，只记录为 `review_only` warning 供后续检查。
 
+AI extract summary 使用同一套 provider 配置，并且只写抽取产物，不修改论文源文件：
+
+```bash
+python3 -m paper_cli --library /path/to/paper-library extract summary --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library extract summary --workers 16 --json
+python3 -m paper_cli --library /path/to/paper-library extract summary --paper-workers 16 --max-requests 500 --retries 2 --json
+python3 -m paper_cli --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
+```
+
+`paper extract summary` 默认处理已转换且还没有 `extracts/summary/summary.json` 的 bundle。使用 `--force` 可重新生成已有输出，使用 `--paper`、`--collection` 或 `--limit` 可控制范围。并发有三层控制：`--paper-workers` 控制论文层并行，`--workers` 控制单篇论文内 block batch 并行，`--max-requests` 控制全局 provider 请求上限。`--paper-workers` 和 `--workers` 默认值为 `16`；`--max-requests` 默认值为 `500`。论文 worker 会按当前论文数裁剪，block worker 会按当前论文的 block batch 数裁剪。provider 请求会按 `--retries` 重试，默认重试 `2` 次；每次重试之间固定等待 10 秒。它会写入 `summary.json`、`summary.md` 和 `source-map.json`。
+
 ## 文献库结构
 
 ```text
@@ -103,6 +123,11 @@ paper-library/
         images/
         conversion.json
         repair.json
+        extracts/
+          summary/
+            summary.json
+            summary.md
+            source-map.json
         backups/
         notes/
           README.md
@@ -114,6 +139,11 @@ paper-library/
       images/
       conversion.json
       repair.json
+      extracts/
+        summary/
+          summary.json
+          summary.md
+          source-map.json
       backups/
       notes/
         README.md
@@ -156,7 +186,7 @@ MVP：
 
 ## 开发说明
 
-当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
+当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，AI extract summary 设计见 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
 
 契约和验证文档：
 

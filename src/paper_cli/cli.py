@@ -3,6 +3,12 @@ import json
 from pathlib import Path
 
 from . import __version__
+from .ai.extract_summary import (
+    DEFAULT_EXTRACT_SUMMARY_MAX_REQUESTS,
+    DEFAULT_EXTRACT_SUMMARY_PAPER_WORKERS,
+    DEFAULT_EXTRACT_SUMMARY_RETRIES,
+    DEFAULT_EXTRACT_SUMMARY_WORKERS,
+)
 from .config import init_library
 from .convert import convert_pending
 from .converters.local_zip import LocalFixtureConverter
@@ -44,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser = subparsers.add_parser("status", help="show library status")
     add_json_flag(status_parser)
     doctor_parser = subparsers.add_parser("doctor", help="validate library")
+    doctor_parser.add_argument("--strict", action="store_true")
     add_json_flag(doctor_parser)
     repair_parser = subparsers.add_parser("repair", help="repair converted bundles with AI")
     repair_parser.add_argument(
@@ -53,6 +60,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     repair_parser.add_argument("--dry-run", action="store_true")
     add_json_flag(repair_parser)
+    extract_parser = subparsers.add_parser("extract", help="extract structured paper information")
+    extract_subparsers = extract_parser.add_subparsers(dest="extract_command")
+    summary_parser = extract_subparsers.add_parser("summary", help="extract AI article skeletons")
+    summary_parser.add_argument("--paper")
+    summary_parser.add_argument("--collection")
+    summary_parser.add_argument("--limit", type=int)
+    summary_parser.add_argument("--workers", type=int, default=DEFAULT_EXTRACT_SUMMARY_WORKERS)
+    summary_parser.add_argument(
+        "--paper-workers",
+        type=int,
+        default=DEFAULT_EXTRACT_SUMMARY_PAPER_WORKERS,
+    )
+    summary_parser.add_argument(
+        "--max-requests",
+        type=int,
+        default=DEFAULT_EXTRACT_SUMMARY_MAX_REQUESTS,
+    )
+    summary_parser.add_argument("--retries", type=int, default=DEFAULT_EXTRACT_SUMMARY_RETRIES)
+    summary_parser.add_argument("--force", action="store_true")
+    summary_parser.add_argument("--dry-run", action="store_true")
+    add_json_flag(summary_parser)
 
     return parser
 
@@ -121,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{key}: {value}")
         return 0
     if args.command == "doctor":
-        issues = run_doctor(Path(args.library))
+        issues = run_doctor(Path(args.library), strict=args.strict)
         if args.json:
             _emit({"ok": not issues, "issues": [issue.to_dict() for issue in issues]}, True)
         else:
@@ -159,6 +187,56 @@ def main(argv: list[str] | None = None) -> int:
                     f"{row['path']} metadata={row['metadata_changed']} "
                     f"markdown={row['markdown_changed']}"
                 )
+            for row in payload["failed"]:
+                print(f"failed: {row['path']} - {row['error']}")
+        return 0 if payload["ok"] else 1
+    if args.command == "extract":
+        if args.extract_command != "summary":
+            parser.error("extract currently requires a subcommand such as summary")
+        from .ai.extract_summary import extract_summary_library
+
+        provider = None
+        if not args.dry_run:
+            from .ai.providers import (
+                OpenAICompatibleProvider,
+                ProviderConfigError,
+                load_provider_config,
+            )
+
+            try:
+                provider = OpenAICompatibleProvider(load_provider_config(Path(args.library)))
+            except ProviderConfigError as exc:
+                payload = {"ok": False, "error": str(exc), "extracted": [], "failed": []}
+                if args.json:
+                    _emit(payload, True)
+                else:
+                    print(str(exc))
+                return 1
+        payload = extract_summary_library(
+            Path(args.library),
+            provider,
+            paper=args.paper,
+            collection=args.collection,
+            limit=args.limit,
+            workers=args.workers,
+            paper_workers=args.paper_workers,
+            max_requests=args.max_requests,
+            retries=args.retries,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
+        if args.json:
+            _emit(payload, True)
+        else:
+            for row in payload["planned"]:
+                print(
+                    f"planned: {row['path']} blocks={row['summarizable_blocks']} "
+                    f"batches={row['batches']}"
+                )
+            for row in payload["extracted"]:
+                print(f"extracted: {row['path']} blocks={row['blocks_summarized']}")
+            for row in payload["skipped"]:
+                print(f"skipped: {row['path']} - {row['reason']}")
             for row in payload["failed"]:
                 print(f"failed: {row['path']} - {row['error']}")
         return 0 if payload["ok"] else 1

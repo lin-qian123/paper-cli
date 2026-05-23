@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Local-folder MVP implemented and covered by tests. The first built-in AI repair phase is closed for now: OpenAI-compatible metadata repair, conservative Markdown repair, backups, `repair.json`, real-provider smoke tests, and suspicious-block hardening are implemented and verified. The next proposed AI feature is `paper extract summary`, a structured article-skeleton extraction command that produces block summaries, section summaries, and a lightweight knowledge graph with source traceability.
+Local-folder MVP implemented and covered by tests. The first built-in AI repair phase is closed for now: OpenAI-compatible metadata repair, conservative Markdown repair, backups, `repair.json`, real-provider smoke tests, and suspicious-block hardening are implemented and verified. The second built-in AI layer, `paper extract summary`, is now implemented for structured article-skeleton extraction: block summaries, section summaries, lightweight graph extraction, and source traceability outputs under `extracts/summary/`.
 
 ## Engineering Phase
 
@@ -44,7 +44,7 @@ Status: phase-complete for now. Remaining unchecked items are follow-up enhancem
 
 ## AI Extract Summary Phase
 
-Status: design recorded, not implemented.
+Status: first implementation complete and smoke-tested on `paper-libraries/full-smoke-library-optimized-v2`.
 
 - [x] Confirm command family as `paper extract`, with first capability `paper extract summary`.
 - [x] Choose a layered extraction pipeline: block-level concurrent summaries, section-level aggregation, and graph-level extraction.
@@ -55,11 +55,15 @@ Status: design recorded, not implemented.
 - [x] Confirm summary length should be content-dependent, not limited to one sentence.
 - [x] Confirm first-pass block policy: summarize main prose/captions; skip references, footnotes, funding, copyright/license, headers/footers, page numbers, OCR noise, pure formulas, pure tables, and pure images.
 - [x] Record design in `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`.
-- [ ] Write an implementation plan for `paper extract summary`.
-- [ ] Implement target selection: `--paper`, `--collection`, `--limit`, `--workers`, `--force`, `--dry-run`, and `--json`.
-- [ ] Implement summary-specific block classification and source-map generation.
-- [ ] Implement fake-provider tests for block workers, section aggregation, graph extraction, skip behavior, and traceability.
-- [ ] Run a real-provider smoke test on converted non-sensitive papers.
+- [x] Implement target selection: `--paper`, `--collection`, `--limit`, `--workers`, `--paper-workers`, `--max-requests`, `--retries`, `--force`, `--dry-run`, and `--json`.
+- [x] Implement summary-specific block classification and source-map generation.
+- [x] Implement block-batch worker calls with CLI-internal concurrency.
+- [x] Implement section aggregation and conservative graph extraction.
+- [x] Implement missing-block-summary retry so provider omissions do not silently break frontend alignment.
+- [x] Implement fake-provider tests for block workers, section aggregation, graph extraction, skip behavior, and traceability.
+- [x] Run a real-provider smoke test on converted non-sensitive papers.
+- [ ] Add a dedicated contract document for `extracts/summary/summary.json` and `source-map.json`.
+- [ ] Consider a cheaper graph mode or `--no-graph` option if real-provider runs are too slow for large libraries.
 
 ## Validation Log
 
@@ -124,6 +128,46 @@ Status: design recorded, not implemented.
   - Confirmed strict traceability as a core contract: stable block IDs, line ranges, text hashes, excerpts, section paths, `block_ids` on section summaries, and `source_block_ids` on graph nodes/edges.
   - Confirmed first-pass filtering: summarize main prose and captions; skip references, footnotes, funding, author contributions, conflicts, copyright/license text, headers/footers, page numbers, OCR noise, pure formulas, pure tables, and pure images.
   - Recorded the design in `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`; implementation has not started.
+- 2026-05-21 AI extract summary implementation:
+  - Added `paper extract summary` with `--paper`, `--collection`, `--limit`, `--workers`, `--force`, `--dry-run`, and `--json`.
+  - Added summary extraction under `src/paper_cli/ai/extract_summary.py`: source-map generation, summary-specific block filtering, block-batch worker prompts, section aggregation, graph extraction, atomic output writes, and default skip behavior for existing summaries.
+  - Output files are written to `extracts/summary/summary.json`, `extracts/summary/summary.md`, and `extracts/summary/source-map.json`; source traceability includes block IDs, line ranges, text hashes, section paths, section `block_ids`, and graph `source_block_ids`.
+  - Added fake-provider tests covering source-map filtering, traceability, no source mutation, default skip and `--force`, CLI dry-run without provider config, and missing block-summary retry.
+  - Final `make verify` passed with 61 tests and ruff clean.
+  - Real-provider dry-run on `paper-libraries/full-smoke-library-optimized-v2` planned 5 converted bundles with 249 summarizable blocks and 35 block batches.
+  - Real-provider extraction wrote summaries for all 5 converted bundles. Final output counts matched source-map summarizable counts exactly: Jae Yeon Park 44/44, Jorge Lerendegui-Marco 61/61, Richi Kumar 55/55, W.L. Huang 26/26, and Yu Yangyi 63/63.
+  - During smoke testing, one provider run omitted some block summaries for the Jae Yeon Park paper; added a retry regression test and implementation so missing block summaries are retried before outputs are considered complete.
+  - After extraction, `paper status --json` on the smoke library reported `total=5`, `converted=5`, `failed=0`, `pending=0`; `paper doctor --json` returned `ok=true`.
+- 2026-05-23 AI extract summary concurrency update:
+  - Changed default `paper extract summary --workers` from 2 to 16.
+  - Added effective worker capping to the current paper's block-batch count, so oversized values such as `--workers 200` do not create more concurrent provider calls than available batches for that paper.
+  - Added a regression test for the default worker constant and effective worker calculation.
+- 2026-05-23 AI extract summary paper-level concurrency update:
+  - Added `--paper-workers` for paper-level parallelism, default 16.
+  - Added `--max-requests` as a global provider request concurrency cap, default 16, shared by block summaries, section aggregation, and graph extraction across all papers.
+  - Added `--retries`, default 2, around every provider request; final failures report the schema name, attempt count, and underlying error in `failed[].error`.
+  - Added fake-provider regression tests for multi-paper concurrency, global request limiting, temporary provider retry success, and clear final failure reporting without writing partial summary output.
+- 2026-05-23 AI extract summary request-cap default update:
+  - Raised the default global provider request cap `--max-requests` from 16 to 500 for the user's high-concurrency provider environment.
+  - Kept `--max-requests` configurable so constrained providers can still lower the cap.
+- 2026-05-23 AI extract summary retry wait update:
+  - Added a fixed 10-second wait between provider request retry attempts.
+  - Kept retry wait as an internal program constant rather than a public CLI parameter to avoid option clutter.
+  - Tests pass `retry_wait=0` through the internal function for retry cases to keep the suite fast while preserving the production default.
+- 2026-05-23 QED random-30 full-test pass:
+  - Drew 30 deterministic-random PDFs from `/Volumes/PHILIPS/programs/paper-cache/QED` and created the test library at `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-fulltest-20260523`.
+  - `make verify` passed with 66 tests and ruff clean; `paper init`, `import`, duplicate import skip, `list`, `status`, and `doctor` command paths passed.
+  - Real MinerU conversion reached 4 converted bundles and 3 recorded failed bundles, then one remote task stayed running for more than 10 minutes and blocked the remaining serial batch; the run was stopped to continue the rest of the audit.
+  - Verified AI command surfaces with a local OpenAI-compatible fake provider because the environment had `MINERU_API_KEY` but no `PAPER_AI_*` provider secrets: `repair` missing-config failure, `repair --dry-run`, `repair --target all`, `extract summary --dry-run`, default skip, `--paper`, and `--force` all behaved as expected on converted bundles.
+  - Generated `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-fulltest-20260523-test-report.md` with artifact counts, MinerU error text, dangling job evidence, naming/content flags, and summary-output counts.
+  - Issues found: MinerU conversion needs a per-file maximum wait, upload/download retry/backoff, and better interruption/job-history cleanup; `doctor` should optionally detect dangling conversion jobs or enforce strict batch success; MinerU-derived renames need guards against all-caps OCR titles, trailing path characters, and malformed spacing.
+- 2026-05-23 QED random-30 hardening follow-up:
+  - Added MinerU network retry/backoff for submit, upload, polling, and ZIP download calls; upload retries rewind the PDF stream before each attempt.
+  - Added `MINERU_MAX_WAIT_SECONDS`, defaulting to 30 minutes per paper, so one long-running MinerU task cannot block the whole serial batch indefinitely.
+  - Conversion interruption now writes `conversion.json` with `state=interrupted`, appends a matching `conversion-finished` job event, marks the bundle failed for retry, rebuilds indexes, and then re-raises the interrupt.
+  - Added `paper doctor --strict` to report pending conversions, failed conversions, invalid job JSON, and dangling `conversion-started` events without matching finish events.
+  - Added title quality guards so OCR-damaged MinerU headings with trailing path characters, replacement characters, all-caps rewrites, or suspicious camel-case joins do not overwrite better existing titles or trigger bundle renames.
+  - `make verify` passed with 72 tests and ruff clean.
 
 ## Approved MVP
 

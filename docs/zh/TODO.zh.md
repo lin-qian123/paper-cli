@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-本地文件夹 MVP 已实现并有测试覆盖。第一阶段内置 AI repair 先告一段落：OpenAI-compatible 元数据修复、保守 Markdown 修复、备份、`repair.json`、真实 provider smoke test 和 suspicious-block 加固都已实现并验证。下一项已规划的 AI 功能是 `paper extract summary`：从已转换 Markdown 中抽取 block 总结、章节骨架和轻量知识图谱，并保留面向后续前端阅读器的原文追溯关系。
+本地文件夹 MVP 已实现并有测试覆盖。第一阶段内置 AI repair 先告一段落：OpenAI-compatible 元数据修复、保守 Markdown 修复、备份、`repair.json`、真实 provider smoke test 和 suspicious-block 加固都已实现并验证。第二层内置 AI 功能 `paper extract summary` 已实现，用于结构化抽取文章骨架：block 总结、章节总结、轻量知识图谱，以及 `extracts/summary/` 下的原文追溯输出。
 
 ## 工程化阶段
 
@@ -44,7 +44,7 @@
 
 ## AI Extract Summary 阶段
 
-状态：设计已记录，尚未实现。
+状态：第一版实现完成，并已在 `paper-libraries/full-smoke-library-optimized-v2` 上做真实 provider smoke test。
 
 - [x] 确认命令族为 `paper extract`，第一项能力为 `paper extract summary`。
 - [x] 确认采用分层抽取管线：block 级并发总结、section 级聚合、graph 级抽取。
@@ -55,11 +55,15 @@
 - [x] 确认摘要长度按段落内容决定，不限制为一句话。
 - [x] 确认第一版 block 策略：总结正文 prose/caption；跳过 references、footnotes、funding、copyright/license、页眉页脚、页码、OCR 噪声、纯公式、纯表格和纯图片。
 - [x] 将设计记录到 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`。
-- [ ] 为 `paper extract summary` 编写实现计划。
-- [ ] 实现目标选择：`--paper`、`--collection`、`--limit`、`--workers`、`--force`、`--dry-run` 和 `--json`。
-- [ ] 实现 summary 专用 block 分类和 source-map 生成。
-- [ ] 增加 fake-provider 测试，覆盖 block worker、section 聚合、graph 抽取、跳过策略和追溯关系。
-- [ ] 在已转换的非敏感论文上运行真实 provider smoke test。
+- [x] 实现目标选择：`--paper`、`--collection`、`--limit`、`--workers`、`--paper-workers`、`--max-requests`、`--retries`、`--force`、`--dry-run` 和 `--json`。
+- [x] 实现 summary 专用 block 分类和 source-map 生成。
+- [x] 实现 block batch worker 调用和 CLI 内部并发。
+- [x] 实现 section 聚合和保守 graph 抽取。
+- [x] 实现 missing block summary 重试，避免 provider 漏项破坏后续前端对齐。
+- [x] 增加 fake-provider 测试，覆盖 block worker、section 聚合、graph 抽取、跳过策略和追溯关系。
+- [x] 在已转换的非敏感论文上运行真实 provider smoke test。
+- [ ] 为 `extracts/summary/summary.json` 和 `source-map.json` 增加专门契约文档。
+- [ ] 如果真实 provider 在大文献库上过慢，考虑增加更便宜的 graph 模式或 `--no-graph` 选项。
 
 ## 验证记录
 
@@ -124,6 +128,39 @@
   - 确认严格追溯关系是核心合同：稳定 block id、行号、文本 hash、excerpt、section path、章节总结中的 `block_ids`、图谱节点/边中的 `source_block_ids`。
   - 确认第一版筛选策略：总结正文和 caption；跳过 references、footnotes、funding、author contributions、conflicts、copyright/license、页眉页脚、页码、OCR 噪声、纯公式、纯表格和纯图片。
   - 已将设计记录到 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`；尚未开始实现。
+- 2026-05-21 AI extract summary 实现：
+  - 增加 `paper extract summary`，支持 `--paper`、`--collection`、`--limit`、`--workers`、`--force`、`--dry-run` 和 `--json`。
+  - 新增 `src/paper_cli/ai/extract_summary.py`：source-map 生成、summary 专用 block 过滤、block batch worker prompt、section 聚合、graph 抽取、原子写入输出，以及已有 summary 默认跳过。
+  - 输出文件写入 `extracts/summary/summary.json`、`extracts/summary/summary.md` 和 `extracts/summary/source-map.json`；追溯字段包括 block id、行号、文本 hash、section path、章节 `block_ids` 和图谱 `source_block_ids`。
+  - 增加 fake-provider 测试，覆盖 source-map 过滤、追溯关系、不修改源文件、默认 skip 和 `--force`、CLI dry-run 无需 provider 配置、missing block summary 重试。
+  - 最终 `make verify` 通过，测试数为 61，ruff clean。
+  - 在 `paper-libraries/full-smoke-library-optimized-v2` 上做真实 provider dry-run，识别 5 个已转换 bundle、249 个可总结 block 和 35 个 block batch。
+  - 真实 provider 抽取已为 5 个转换后 bundle 写出 summary。最终每篇 `summary.json.blocks` 都与 `source-map.json` 中 `summary_policy=summarize` 的数量一致：Jae Yeon Park 44/44，Jorge Lerendegui-Marco 61/61，Richi Kumar 55/55，W.L. Huang 26/26，Yu Yangyi 63/63。
+  - smoke test 中发现一次 provider 漏回 Jae Yeon Park 的部分 block summary；已增加回归测试和重试实现，避免漏项静默破坏后续前端对齐。
+  - 抽取后，smoke library 的 `paper status --json` 返回 `total=5`、`converted=5`、`failed=0`、`pending=0`；`paper doctor --json` 返回 `ok=true`。
+- 2026-05-23 AI extract summary 并发更新：
+  - 将 `paper extract summary --workers` 默认值从 2 改为 16。
+  - 增加按当前论文 block batch 数裁剪实际 worker 数的逻辑，因此像 `--workers 200` 这样的超大值不会产生超过当前论文 batch 数的并发 provider 调用。
+  - 增加默认 worker 常量和 effective worker 计算的回归测试。
+- 2026-05-23 AI extract summary 论文层并发更新：
+  - 增加 `--paper-workers` 控制论文层并行，默认值为 16。
+  - 增加 `--max-requests` 作为全局 provider 请求并发上限，默认值为 16，并由所有论文的 block summary、section aggregation 和 graph extraction 共享。
+  - 增加 `--retries`，默认值为 2，包裹每一次 provider 请求；最终失败会在 `failed[].error` 中报告 schema、尝试次数和底层错误。
+  - 增加 fake-provider 回归测试，覆盖多篇论文并发、全局请求限流、临时 provider 失败重试成功、最终失败时清晰报错且不写部分 summary 输出。
+- 2026-05-23 AI extract summary 请求上限默认值更新：
+  - 按用户的高并发 provider 环境，将全局 provider 请求上限 `--max-requests` 默认值从 16 提高到 500。
+  - 保留 `--max-requests` 可配置，因此受限 provider 仍可手动降低上限。
+- 2026-05-23 AI extract summary 重试等待更新：
+  - 增加 provider 请求重试之间固定等待 10 秒的逻辑。
+  - 将重试等待保留为程序内部常量，不暴露为公开 CLI 参数，避免参数过多。
+  - 测试中的 retry case 通过内部函数使用 `retry_wait=0`，避免测试套件变慢，同时保留生产默认值。
+- 2026-05-23 QED random-30 加固跟进：
+  - 为 MinerU submit、upload、polling 和 ZIP download 网络请求增加重试/退避；upload 重试前会重置 PDF 文件流位置。
+  - 增加 `MINERU_MAX_WAIT_SECONDS`，默认每篇 30 分钟，避免单个远端 MinerU 任务无限阻塞整个串行批处理。
+  - 转换被中断时会写入 `state=interrupted` 的 `conversion.json`，追加匹配的 `conversion-finished` job event，将 bundle 标为 failed 以便后续重试，重建索引，然后重新抛出中断。
+  - 增加 `paper doctor --strict`，用于报告 pending/failed 转换、非法 job JSON，以及没有匹配 finish 事件的悬空 `conversion-started`。
+  - 增加标题质量门禁，OCR 损坏的 MinerU heading 如果包含尾部路径字符、替换字符、全大写改写或可疑连写，不会覆盖更好的既有标题，也不会触发 bundle 重命名。
+  - `make verify` 通过，测试数为 72，ruff clean。
 
 ## 已确认 MVP
 
