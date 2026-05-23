@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文档记录下一阶段 AI 功能 `paper extract summary` 的设计草案。当前只完成需求澄清和方案确认，尚未进入实现。
+本文档记录 AI 功能 `paper extract summary` 的设计。该功能已按本文档第一版范围实现，并在 `paper-libraries/full-smoke-library-optimized-v2` 上完成真实 provider smoke test。
 
 已确认的核心方向：
 
@@ -43,7 +43,10 @@ paper extract summary
 paper extract summary --paper <id-or-prefix>
 paper extract summary --collection <path>
 paper extract summary --limit 3
-paper extract summary --workers 4
+paper extract summary --workers 16
+paper extract summary --paper-workers 16
+paper extract summary --max-requests 500
+paper extract summary --retries 2
 paper extract summary --force
 paper extract summary --dry-run
 paper extract summary --json
@@ -132,8 +135,16 @@ worker 职责：
 
 第一版使用 CLI 内部并发请求同一个 AI provider，例如 `ThreadPoolExecutor`：
 
-- `--workers` 控制并发度。
-- 默认并发度应保守，例如 2 或 4。
+- `--workers` 控制 block batch 阶段的 provider 并发度。
+- `--paper-workers` 控制同时处理多少篇论文。
+- `--max-requests` 控制整个进程同时飞行的 provider 请求数。
+- `--retries` 控制单次 provider 请求失败后的重试次数。
+- 重试之间固定等待 10 秒；该值是程序内部常量，不暴露为 CLI 参数。
+- `--workers` 和 `--paper-workers` 默认都为 16；`--max-requests` 默认为 500；`--retries` 默认为 2。
+- 实际并发度按当前论文 batch 数裁剪：`effective_workers = min(max(1, workers), batch_count)`。
+- 论文层并发也按当前候选论文数裁剪，避免候选论文较少时创建不必要的线程。
+- 所有论文共享同一个 provider request semaphore，避免 `paper-workers * workers` 放大为无上限 provider 请求。
+- block summary、section aggregation 和 graph extraction 都通过同一个 retry 包装调用 provider；失败后固定等待 10 秒再重试。如果所有重试失败，该 bundle 标记 failed，并在 CLI JSON 的 `failed[].error` 中写明 schema、尝试次数和底层错误。
 - 每个 worker 处理一个 block batch，而不是单个 paragraph，减少请求数量。
 - 主流程在所有 block batch 完成后再进行 section 聚合和 graph 聚合。
 - 如果单个 batch 失败，记录失败 batch 和 block IDs，不应写出伪完整结果。
@@ -484,4 +495,3 @@ uses, measures, produces, supports, compares_with, limits, depends_on, explains
 8. 写 `summary.json`、`summary.md`，并保证原子写入。
 9. 添加单元测试和 fixture 集成测试。
 10. 用真实 provider 和真实论文做 smoke test。
-

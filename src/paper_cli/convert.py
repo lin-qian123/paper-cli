@@ -94,6 +94,20 @@ def _should_update(existing_confidence: str | None, update_confidence: str | Non
     return _confidence_rank(update_confidence) >= _confidence_rank(existing_confidence)
 
 
+def bad_converted_title(existing_title: str | None, converted_title: str | None) -> bool:
+    if not converted_title:
+        return False
+    title = converted_title.strip()
+    if title.endswith(("\\", "/", "|")) or "\ufffd" in title:
+        return True
+    letters = [ch for ch in title if ch.isalpha()]
+    if existing_title and len(letters) >= 20 and title.upper() == title:
+        return True
+    if re.search(r"[a-z][A-Z]", title):
+        return True
+    return False
+
+
 def _merge_metadata(
     existing: dict,
     existing_sources: dict[str, str],
@@ -120,6 +134,11 @@ def _merge_metadata(
     for key, value in update.items():
         if value in (None, "", []):
             continue
+        if key == "title" and bad_converted_title(
+            str(existing.get("title") or ""),
+            str(value),
+        ):
+            continue
         if _should_update(merged_confidence.get(key), update_confidence.get(key)):
             merged[key] = value
             if key in update_sources:
@@ -130,7 +149,7 @@ def _merge_metadata(
 
 
 def maybe_rename_bundle(library_dir: Path, bundle_dir: Path, record: PaperRecord) -> Path:
-    if record.name_locked:
+    if record.name_locked or record.status.get("naming") == "review":
         record.status["naming"] = "review"
         write_paper(bundle_dir, record)
         return bundle_dir
@@ -266,7 +285,34 @@ def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
             attempt=attempt,
             state="running",
         )
-        result = converter.convert(bundle_dir / "original.pdf", bundle_dir)
+        try:
+            result = converter.convert(bundle_dir / "original.pdf", bundle_dir)
+        except (KeyboardInterrupt, SystemExit) as exc:
+            record.status["conversion"] = "failed"
+            write_paper(bundle_dir, record)
+            error = exc.__class__.__name__
+            _write_conversion_json(
+                bundle_dir,
+                converter_name=converter_name,
+                attempt=attempt,
+                submitted_at=submitted_at,
+                ok=False,
+                state="interrupted",
+                error=error,
+            )
+            _append_conversion_job(
+                library_dir,
+                bundle_dir,
+                record,
+                event="conversion-finished",
+                converter_name=converter_name,
+                attempt=attempt,
+                state="interrupted",
+                ok=False,
+                error=error,
+            )
+            rebuild_papers_index(library_dir)
+            raise
         if not result.ok:
             record.status["conversion"] = "failed"
             write_paper(bundle_dir, record)
@@ -298,6 +344,17 @@ def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
         metadata_update, update_sources, update_confidence = extract_metadata_details_from_markdown(
             markdown_path.read_text(encoding="utf-8")
         )
+        bad_title = bad_converted_title(
+            str(record.metadata.get("title") or ""),
+            str(metadata_update.get("title") or ""),
+        )
+        if bad_title:
+            metadata_update = dict(metadata_update)
+            update_sources = dict(update_sources)
+            update_confidence = dict(update_confidence)
+            metadata_update.pop("title", None)
+            update_sources.pop("title", None)
+            update_confidence.pop("title", None)
         (
             record.metadata,
             record.metadata_sources,
@@ -312,7 +369,7 @@ def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
         )
         record.status["conversion"] = "done"
         record.status["metadata"] = "complete" if record.metadata.get("title") else "partial"
-        record.status["naming"] = "metadata"
+        record.status["naming"] = "review" if bad_title else "metadata"
         write_paper(bundle_dir, record)
         _write_conversion_json(
             bundle_dir,
