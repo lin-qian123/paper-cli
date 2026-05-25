@@ -66,6 +66,7 @@ The MVP imports local PDF files or folders, copies PDFs into the library, conver
 - Keep implementation incremental and testable.
 - Do not hard-code API keys or user-specific paths.
 - Read secrets from environment variables or explicit config files that are not committed.
+- For this project, API/AI-provider validation may load the project-root `.env` file directly, for example with `set -a; source .env; set +a`, but never print secret values or commit the `.env` file.
 - Prefer clear filesystem contracts over hidden application state.
 - Avoid destructive operations on user PDF libraries.
 - Never modify a source PDF in place.

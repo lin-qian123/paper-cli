@@ -6,9 +6,9 @@ Its purpose is to make research papers easier for AI agents to manage and read. 
 
 ## Current Status
 
-Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through MinerU or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, repairing converted bundles with an OpenAI-compatible AI provider, and extracting AI article skeleton summaries from converted Markdown.
+Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through the serial MinerU API backend, the MinerU precise API batch backend, a local MinerU CLI backend, or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, repairing converted bundles with an OpenAI-compatible AI provider, and extracting AI article skeleton summaries from converted Markdown.
 
-Recent real-library hardening added MinerU network retry/backoff, a per-file MinerU wait limit, interrupted-conversion job cleanup, a strict doctor mode for batch audits, and guards against OCR-damaged MinerU titles causing bad bundle renames.
+Recent real-library hardening added MinerU network retry/backoff, a per-file or per-batch MinerU wait limit, interrupted-conversion job cleanup, a strict doctor mode for batch audits, guards against OCR-damaged MinerU titles causing bad bundle renames, and selectable `mineru-api-batch` / `mineru-local` conversion backends.
 
 The built-in AI repair phase is now usable as a conservative post-conversion repair layer. It can repair metadata, rename bundles from repaired metadata, and patch low-risk Markdown extraction defects. Formula-heavy, table, reference, and math-heavy blocks are recorded as review-only warnings instead of being automatically rewritten.
 
@@ -39,6 +39,8 @@ paper init <library-dir>
 paper import <pdf-or-folder> --collection <path>
 paper import <pdf-or-folder> --inbox
 paper convert --pending
+paper convert --pending --converter mineru-api-batch --batch-size 20 --jobs 4
+paper convert --pending --converter mineru-local --local-backend pipeline --jobs 2
 paper list
 paper status
 paper doctor
@@ -76,14 +78,22 @@ python3 -m paper_cli --library /path/to/paper-library doctor --json
 python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
 ```
 
-Real MinerU conversion reads the API key from `MINERU_API_KEY`. Network calls are retried, and long-running remote tasks are bounded by `MINERU_MAX_WAIT_SECONDS`, defaulting to 30 minutes per file.
+Real MinerU cloud conversion reads the API key from `MINERU_API_KEY`. The default `paper convert --pending` behavior remains the serial `mineru-api` backend. For larger libraries, use `--converter mineru-api-batch`; it submits MinerU precise API batches, caps API upload-link requests at 50 files, uploads/downloads with bounded concurrency, records `batch_id` / `data_id` in `conversion.json`, and resumes an existing running batch before submitting duplicates. `--batch-size` defaults to `20`, and `--jobs` defaults to `4` for cloud upload/download work. Network calls are retried, and long-running remote tasks are bounded by `MINERU_MAX_WAIT_SECONDS`, defaulting to 30 minutes per file or batch.
 
-`paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions and dangling conversion job history, which is useful after batch conversion runs.
+Local MinerU conversion uses an installed `mineru` executable:
+
+```bash
+python3 -m paper_cli --library /path/to/paper-library convert --pending --converter mineru-local --local-backend pipeline --jobs 2 --json
+```
+
+`--local-backend` is passed to MinerU as `-b`, for example `pipeline`. The local backend writes the same bundle contract as the cloud backends: `paper.md`, `images/`, `raw/mineru/`, and `conversion.json`.
+
+`paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions, dangling conversion job history, stale running conversions, and missing MinerU batch mapping fields, which is useful after batch conversion runs.
 
 For tests and dry runs, `convert` can use fixture output instead of the network:
 
 ```bash
-python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
+python3 -m paper_cli --library /tmp/lib convert --pending --converter local-fixture --fixture-output /tmp/mineru-fixture --json
 ```
 
 AI repair reads an OpenAI-compatible chat completions provider from environment variables:
@@ -186,7 +196,7 @@ Later phases:
 
 ## Development Notes
 
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
+See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md` for the MinerU conversion backend plan, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
 
 Contract docs:
 

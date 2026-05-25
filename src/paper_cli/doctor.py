@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -30,6 +32,7 @@ def _strict_conversion_issues(library_dir: Path) -> list[Issue]:
             issues.append(Issue("failed-conversion", str(bundle_dir), "Conversion failed"))
         elif state != "done":
             issues.append(Issue("pending-conversion", str(bundle_dir), "Conversion is not done"))
+        issues.extend(_strict_conversion_file_issues(bundle_dir))
 
     jobs_path = library_dir / "indexes" / "jobs.jsonl"
     if not jobs_path.exists():
@@ -61,6 +64,51 @@ def _strict_conversion_issues(library_dir: Path) -> list[Issue]:
                         f"{event.get('paper_id')} attempt {event.get('attempt')}"
                     ),
                 )
+            )
+    return issues
+
+
+def _strict_conversion_file_issues(bundle_dir: Path) -> list[Issue]:
+    path = bundle_dir / "conversion.json"
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [Issue("invalid-conversion-json", str(path), str(exc))]
+    if payload.get("state") != "running":
+        return []
+
+    issues: list[Issue] = []
+    if payload.get("converter") == "mineru-api-batch" and (
+        not payload.get("batch_id") or not payload.get("data_id")
+    ):
+        issues.append(
+            Issue(
+                "missing-batch-conversion-mapping",
+                str(path),
+                "Running MinerU batch conversion is missing batch_id or data_id",
+            )
+        )
+
+    submitted_at = payload.get("submitted_at")
+    if submitted_at:
+        try:
+            submitted = datetime.fromisoformat(str(submitted_at).replace("Z", "+00:00"))
+            if submitted.tzinfo is None:
+                submitted = submitted.replace(tzinfo=UTC)
+            max_wait = float(os.environ.get("MINERU_MAX_WAIT_SECONDS", 30 * 60))
+            if (datetime.now(UTC) - submitted).total_seconds() > max_wait:
+                issues.append(
+                    Issue(
+                        "stale-running-conversion",
+                        str(path),
+                        f"Running conversion is older than {max_wait:g} seconds",
+                    )
+                )
+        except ValueError:
+            issues.append(
+                Issue("invalid-conversion-timestamp", str(path), "submitted_at is invalid")
             )
     return issues
 

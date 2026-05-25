@@ -23,6 +23,9 @@
   "converted_at": "2026-05-13T00:01:00+00:00",
   "error": null,
   "raw_output_dir": "raw/mineru",
+  "batch_id": "mineru-batch-id",
+  "data_id": "sha256:...",
+  "remote_state": "done",
   "markdown": "paper.md",
   "images": "images"
 }
@@ -49,14 +52,17 @@
 ## 字段含义
 
 - `schema_version`：整数 schema 版本。当前为 `1`。
-- `converter`：转换器名称，例如 `mineru` 或 `local-fixture`。
+- `converter`：转换器名称，例如 `mineru`、`mineru-api-batch`、`mineru-local` 或 `local-fixture`。
 - `ok`：最近一次转换是否成功。
-- `state`：最近一次转换状态。当前值为 `done` 或 `failed`。
+- `state`：最近一次转换状态。当前值为 `running`、`done`、`failed` 或 `interrupted`。
 - `attempt`：该 bundle 的转换尝试次数。失败 bundle 重试时会递增。
 - `submitted_at`：转换器执行开始前的 UTC 时间。
 - `converted_at`：写入该结果的 UTC 时间。
 - `error`：成功时为 `null`，失败时为诊断文本。
 - `raw_output_dir`：相对 bundle 的转换器原始输出目录，或 `null`。
+- `batch_id`：可选，`mineru-api-batch` 的远端 MinerU batch 标识。
+- `data_id`：可选，用于把 MinerU batch item 映射回 paper bundle 的单文件标识。
+- `remote_state`：可选，MinerU 返回的远端 item 状态。
 - `markdown`：相对 bundle 的 Markdown 输出路径。
 - `images`：相对 bundle 的图片目录路径。
 
@@ -83,6 +89,6 @@ raw/
 {"event":"conversion-finished","at":"2026-05-13T00:01:00+00:00","paper_id":"sha256:...","bundle_path":"inbox/Example","converter":"mineru","attempt":1,"state":"done","ok":true}
 ```
 
-失败转换的结束事件使用 `state: "failed"`、`ok: false`，并包含 `error`。
+失败转换的结束事件使用 `state: "failed"`、`ok: false`，并包含 `error`。批量转换事件还可能包含 `batch_id`、`data_id` 和 `remote_state`。
 
 未来读取方应忽略未知字段。

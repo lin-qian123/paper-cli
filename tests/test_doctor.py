@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 
 from paper_cli.cli import main
 from paper_cli.doctor import run_doctor
@@ -93,3 +94,53 @@ def test_doctor_cli_strict_exits_nonzero_for_incomplete_batch(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
     assert any(issue["code"] == "pending-conversion" for issue in payload["issues"])
+
+
+def test_doctor_strict_reports_stale_running_conversion(tmp_path, monkeypatch):
+    library = tmp_path / "library"
+    pdf = tmp_path / "A et al. - 2025 - Running Paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+    bundle = library / "inbox" / "A et al. - 2025 - Running Paper"
+    old = (datetime.now(UTC) - timedelta(seconds=120)).isoformat()
+    (bundle / "conversion.json").write_text(
+        json.dumps(
+            {
+                "converter": "mineru-api-batch",
+                "state": "running",
+                "submitted_at": old,
+                "batch_id": "batch-1",
+                "data_id": "sha256:test",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MINERU_MAX_WAIT_SECONDS", "1")
+
+    issues = run_doctor(library, strict=True)
+
+    assert any(issue.code == "stale-running-conversion" for issue in issues)
+
+
+def test_doctor_strict_reports_batch_running_state_missing_mapping(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "A et al. - 2025 - Missing Mapping.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+    bundle = library / "inbox" / "A et al. - 2025 - Missing Mapping"
+    (bundle / "conversion.json").write_text(
+        json.dumps(
+            {
+                "converter": "mineru-api-batch",
+                "state": "running",
+                "submitted_at": datetime.now(UTC).isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = run_doctor(library, strict=True)
+
+    assert any(issue.code == "missing-batch-conversion-mapping" for issue in issues)

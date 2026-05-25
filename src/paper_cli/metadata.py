@@ -7,6 +7,8 @@ from typing import Any
 
 from pypdf import PdfReader
 
+from .naming import remove_problematic_unicode
+
 YEAR_PATTERN = re.compile(r"^(?P<creator>.+?)\s+-\s+(?P<year>\d{4})\s+-\s+(?P<title>.+)$")
 logging.getLogger("pypdf").setLevel(logging.ERROR)
 
@@ -30,10 +32,10 @@ def normalize_creators(value: Any) -> list[dict[str, str]]:
     creators: list[dict[str, str]] = []
     for item in items:
         if isinstance(item, str):
-            name = item.strip()
+            name = remove_problematic_unicode(item).strip()
             role = "author"
         elif isinstance(item, dict):
-            name = str(item.get("name") or "").strip()
+            name = remove_problematic_unicode(str(item.get("name") or "")).strip()
             role = str(item.get("role") or "author").strip() or "author"
         else:
             return []
@@ -69,13 +71,13 @@ def _empty_metadata(title: str = "") -> dict[str, Any]:
 
 
 def metadata_from_filename(path: Path) -> dict[str, Any]:
-    stem = path.stem.strip()
+    stem = remove_problematic_unicode(path.stem).strip()
     match = YEAR_PATTERN.match(stem)
     if not match:
         return _empty_metadata(stem)
 
     creator = _creator_from_text(match.group("creator"))
-    title = match.group("title").strip()
+    title = remove_problematic_unicode(match.group("title")).strip()
     return {
         "title": title,
         "creators": [creator] if creator else [],
@@ -87,7 +89,7 @@ def metadata_from_filename(path: Path) -> dict[str, Any]:
 
 def filename_metadata_details(path: Path) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
     metadata = metadata_from_filename(path)
-    stem = path.stem.strip()
+    stem = remove_problematic_unicode(path.stem).strip()
     matched = YEAR_PATTERN.match(stem) is not None
     sources: dict[str, str] = {}
     confidence: dict[str, str] = {}
@@ -113,8 +115,8 @@ def metadata_from_pdf(path: Path) -> dict[str, Any]:
     except Exception:
         return _empty_metadata()
 
-    title = str(raw.get("/Title") or "").strip()
-    author = str(raw.get("/Author") or "").strip()
+    title = remove_problematic_unicode(str(raw.get("/Title") or "")).strip()
+    author = remove_problematic_unicode(str(raw.get("/Author") or "")).strip()
     metadata = _empty_metadata(title)
     if author:
         metadata["creators"] = normalize_creators(author)
