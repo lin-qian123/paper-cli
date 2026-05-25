@@ -19,6 +19,10 @@
 - [x] 按置信度合并转换元数据，保护高置信度字段。
 - [x] 定义 source adapter 接口，并将本地文件夹导入作为参考 adapter。
 - [x] 写好 `paper repair` 的 AI 修复设计。
+- [x] 写好 MinerU 转换后端计划，覆盖云端批量转换和本地 MinerU CLI 转换。
+- [x] 实现 `mineru-api-batch`，支持受限 batch size、上传/下载并发、轮询和断点续跑。
+- [x] 实现 `mineru-local` 本地 CLI 后端，并将输出归一化到现有 bundle 契约。
+- [x] 新转换后端完成后，重新运行 QED random-30 或更大语料验证。
 
 ## AI 修复阶段
 
@@ -66,6 +70,21 @@
 - [ ] 如果真实 provider 在大文献库上过慢，考虑增加更便宜的 graph 模式或 `--no-graph` 选项。
 
 ## 验证记录
+
+- 2026-05-25：删除 `/Volumes/PHILIPS/programs/paper-cache` 下之前的 `paper-cli-*` 测试目录后，在 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525` 重新运行 QED random-30 全流程验证。
+  - 抽样清单：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-list.txt`；symlink 输入目录：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-input`。
+  - 针对导入/转换元数据和 bundle 名中的私用区 Unicode 字形增加清洗后，`make verify` 通过：91 个测试通过，ruff 无问题。
+  - `paper init`、`paper import`、重复导入、`paper list --json`、转换前 `paper status --json` 和 `paper doctor --json` 均通过。
+  - 本地 MinerU 转换使用 `/Volumes/PHILIPS/programs/mineru/.venv/bin` 加入 `PATH`，参数为 `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`。
+  - 30 篇最终状态：`total=30`、`converted=30`、`failed=0`、`pending=0`、`incomplete_metadata=0`、`renamed=9`。
+  - `paper doctor --strict --json` 返回 `ok=true`；产物计数为 30 个 `paper.md`、30 个 `images/`、30 个 `raw/mineru`、30 个 `conversion.json`。
+  - 针对路径分隔符、替换字符、私用区乱码、`SCIENTIFIC REPORTS` 和重复空格的命名异常扫描，在清洗修复后无命中。
+  - AI 单测通过：`tests/test_ai_repair.py` 和 `tests/test_ai_extract_summary.py` 共 23 个测试通过。
+  - `extract summary --dry-run --limit 30 --json` 成功规划全部 30 篇已转换论文。
+  - 真实 provider smoke library：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-ai-smoke`。
+  - 真实 provider `repair --dry-run --json` 在 smoke library 上通过；真实 provider `repair --json` 写入路径也通过，并生成 `repair.json` 和备份。
+  - 真实 provider `extract summary --limit 1 --workers 4 --paper-workers 1 --max-requests 8 --json` 在 smoke library 上通过：总结 25 个 block，生成 3 个 section、12 个 graph node 和 11 条 graph edge。
+  - repair 和 summary 输出生成后，smoke library 的 `paper doctor --strict --json` 返回 `ok=true`。
 
 - 2026-05-13：使用桌面 PDF `Advanced Science - 2026 - Guo - Helical Electron Beam Micro-Bunching by High-Order Modes in a Micro-Plasma Waveguide.pdf` 在 `/tmp` 临时文献库中测试。
   - 导入成功，PDF 已复制到 inbox bundle。
@@ -161,6 +180,35 @@
   - 增加 `paper doctor --strict`，用于报告 pending/failed 转换、非法 job JSON，以及没有匹配 finish 事件的悬空 `conversion-started`。
   - 增加标题质量门禁，OCR 损坏的 MinerU heading 如果包含尾部路径字符、替换字符、全大写改写或可疑连写，不会覆盖更好的既有标题，也不会触发 bundle 重命名。
   - `make verify` 通过，测试数为 72，ruff clean。
+- 2026-05-23 MinerU 转换后端实现：
+  - 增加 `paper convert --pending --converter` 选择，支持 `mineru-api`、`mineru-api-batch`、`mineru-local` 和 `local-fixture`；新增 `--batch-size`、`--jobs`、`--local-backend` 配置新后端。
+  - 增加批量转换编排，同一批中单篇失败不会阻塞其他成功项落盘。
+  - 增加 `mineru-api-batch`，包含 50 文件 upload-link 请求上限、稳定 `data_id`、受限上传/下载并发、轮询、ZIP 归一化，以及从已有 running `batch_id` 恢复。
+  - 增加 `mineru-local`，调用已安装的 `mineru` CLI，支持 `-b` 后端选择，将本地输出归一化为 `paper.md`、`images/` 和 `raw/mineru/`，并支持 `--jobs` 批量并发。
+  - 扩展 strict doctor，检测陈旧 running conversion 文件以及缺失的 `mineru-api-batch` `batch_id` / `data_id` 映射。
+  - 真实 QED random-30 验证使用 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-backends-qed-30-20260523-rerun`，命令为 `--converter mineru-api-batch --batch-size 2 --jobs 1`。
+  - 保守真实运行成功转换 6 篇；之后 MinerU OSS 上传经本机代理再次停滞。中断运行后，当前 chunk 的 2 篇写入 `interrupted` conversion 记录，并标记为 failed 以便后续重试。
+  - 第一轮真实 batch 暴露了两个问题：未来 chunk 过早写入 started job，以及上传阶段没有受 `MINERU_MAX_WAIT_SECONDS` 约束；两者均已补回归测试和修复。
+  - 本机 `PATH` 上没有安装 `mineru`，因此无法运行真实本地 CLI 验证；本地后端已有 subprocess mock 测试覆盖。
+  - 最终本地验证通过：`make verify`，89 个测试通过，ruff clean。
+- 2026-05-24 本地 MinerU QED random-30 验证：
+  - 将 clone 下来的 MinerU 仓库 `/Volumes/PHILIPS/programs/mineru` 安装到 `/Volumes/PHILIPS/programs/mineru/.venv`，命令为 `uv pip install -e ".[all]"`。
+  - 由于本地环境使用 SOCKS 代理，而 MinerU/httpx 缺少 `socksio` 会失败，已向 MinerU venv 补装 `socksio`。
+  - 使用 `PATH=/Volumes/PHILIPS/programs/mineru/.venv/bin:$PATH` 运行 `paper convert --pending --converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`，处理 30 篇 QED 样本论文。
+  - 最终文献库：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-qed-30-20260524`。
+  - 最终状态：`total=30`、`converted=30`、`failed=0`、`pending=0`、`incomplete_metadata=0`、`renamed=13`。
+  - `paper doctor --strict --json` 返回 `ok=true`。
+  - 已验证 30 个 `paper.md`、30 个 `images/`、30 个 `raw/mineru/` 和 30 个 `conversion.json`。
+  - 命名审计发现 4 个需要复核的候选：一个数学公式标题片段、一个标题末尾私用区 glyph、一个期刊标签标题 `SCIENTIFIC REPORTS`，以及一个以 `\` 结尾的标题。
+- 2026-05-24 本地 MinerU 输出上的 AI provider smoke：
+  - 从项目 `.env` 加载 provider 配置，未打印 secret 值。
+  - `tests/test_ai_repair.py` 和 `tests/test_ai_extract_summary.py` 通过，共 23 个测试。
+  - 在 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-qed-30-20260524` 上运行 `extract summary --dry-run --limit 30`，30 篇已转换论文均成功进入 planned。
+  - 针对 30 篇库的全量 `repair --dry-run` 经本地代理访问 provider 时数分钟无返回，已中止。
+  - 从本地 MinerU 输出创建 1 篇 smoke library：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-ai-repair-smoke-20260524`。
+  - 真实 provider `repair --dry-run` 在 smoke library 上通过：`ok=true`、`repaired_count=1`、`failed_count=0`。
+  - 真实 provider `extract summary --limit 1` 在 smoke library 上通过：总结 41 个 block，生成 1 个 section、13 个 graph node 和 11 条 graph edge。
+  - 真实 provider `repair --json` 写入路径在 smoke library 上通过；随后 `paper doctor --strict --json` 返回 `ok=true`。
 
 ## 已确认 MVP
 

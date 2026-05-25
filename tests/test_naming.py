@@ -30,3 +30,7 @@ def test_sanitize_removes_path_separators():
 
 def test_sanitize_collapses_whitespace_and_limits_length():
     assert sanitize_name("  A   B   ", max_length=3) == "A B"
+
+
+def test_sanitize_removes_private_use_glyphs():
+    assert sanitize_name("Laser pulses \ue907") == "Laser pulses"

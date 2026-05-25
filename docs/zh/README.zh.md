@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过 MinerU 或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，通过 OpenAI-compatible provider 修复已转换 bundle，并从转换后的 Markdown 中抽取 AI 文章骨架摘要。
+本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过串行 MinerU API、MinerU precise API 批量后端、本地 MinerU CLI 后端或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，通过 OpenAI-compatible provider 修复已转换 bundle，并从转换后的 Markdown 中抽取 AI 文章骨架摘要。
 
-最近一次真实文献库加固补上了 MinerU 网络重试/退避、单篇 MinerU 等待上限、转换中断后的 job 收尾、用于批处理审计的 strict doctor 模式，以及防止 OCR 损坏标题导致错误重命名的质量门禁。
+最近一次真实文献库加固补上了 MinerU 网络重试/退避、单篇或单批 MinerU 等待上限、转换中断后的 job 收尾、用于批处理审计的 strict doctor 模式、防止 OCR 损坏标题导致错误重命名的质量门禁，以及可选择的 `mineru-api-batch` / `mineru-local` 转换后端。
 
 内置 AI repair 阶段已达到阶段性可用状态。它可以修复元数据、根据修复后的元数据同步重命名 bundle，并对低风险 Markdown 抽取缺陷做自动 patch。公式密集、表格、参考文献和数学密集 block 会记录为 `review_only` warning，而不是自动改写。
 
@@ -39,6 +39,8 @@ paper init <library-dir>
 paper import <pdf-or-folder> --collection <path>
 paper import <pdf-or-folder> --inbox
 paper convert --pending
+paper convert --pending --converter mineru-api-batch --batch-size 20 --jobs 4
+paper convert --pending --converter mineru-local --local-backend pipeline --jobs 2
 paper list
 paper status
 paper doctor
@@ -76,14 +78,22 @@ python3 -m paper_cli --library /path/to/paper-library doctor --json
 python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
 ```
 
-真实 MinerU 转换从环境变量 `MINERU_API_KEY` 读取 API key。网络请求会自动重试，远端长时间运行任务受 `MINERU_MAX_WAIT_SECONDS` 限制，默认每篇 30 分钟。
+真实 MinerU 云端转换从环境变量 `MINERU_API_KEY` 读取 API key。默认 `paper convert --pending` 仍使用串行 `mineru-api` 后端。较大文献库建议使用 `--converter mineru-api-batch`；它会提交 MinerU precise API 批量任务，把单次 upload-link 请求限制在 50 个文件以内，用受限并发上传/下载，在 `conversion.json` 记录 `batch_id` / `data_id`，并在发现已有 running batch 时优先恢复轮询，避免重复提交。`--batch-size` 默认 `20`，云端上传/下载 `--jobs` 默认 `4`。网络请求会自动重试，远端长时间运行任务受 `MINERU_MAX_WAIT_SECONDS` 限制，默认每篇或每批 30 分钟。
 
-`paper doctor` 默认检查文献库结构完整性。`paper doctor --strict` 会额外报告 pending/failed 转换和悬空 conversion job，适合批量转换后的成功率审计。
+本地 MinerU 转换使用已安装的 `mineru` 可执行文件：
+
+```bash
+python3 -m paper_cli --library /path/to/paper-library convert --pending --converter mineru-local --local-backend pipeline --jobs 2 --json
+```
+
+`--local-backend` 会作为 `-b` 传给 MinerU，例如 `pipeline`。本地后端写入与云端后端相同的 bundle 契约：`paper.md`、`images/`、`raw/mineru/` 和 `conversion.json`。
+
+`paper doctor` 默认检查文献库结构完整性。`paper doctor --strict` 会额外报告 pending/failed 转换、悬空 conversion job、陈旧 running 转换和缺失的 MinerU batch 映射字段，适合批量转换后的成功率审计。
 
 测试或 dry run 可以用 fixture 输出，不走网络：
 
 ```bash
-python3 -m paper_cli --library /tmp/lib convert --pending --fixture-output /tmp/mineru-fixture --json
+python3 -m paper_cli --library /tmp/lib convert --pending --converter local-fixture --fixture-output /tmp/mineru-fixture --json
 ```
 
 AI 修复使用 OpenAI-compatible chat completions provider，优先从环境变量读取：
@@ -186,7 +196,7 @@ MVP：
 
 ## 开发说明
 
-当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，AI extract summary 设计见 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
+当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，AI extract summary 设计见 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`，MinerU 转换后端计划见 `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
 
 契约和验证文档：
 

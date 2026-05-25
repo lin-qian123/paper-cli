@@ -42,6 +42,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     convert_parser = subparsers.add_parser("convert", help="convert pending papers")
     convert_parser.add_argument("--pending", action="store_true")
+    convert_parser.add_argument(
+        "--converter",
+        choices=("mineru-api", "mineru-api-batch", "mineru-local", "local-fixture"),
+        default=None,
+    )
+    convert_parser.add_argument("--batch-size", type=int, default=20)
+    convert_parser.add_argument("--jobs", type=int, default=None)
+    convert_parser.add_argument("--local-backend")
     convert_parser.add_argument("--fixture-output")
     add_json_flag(convert_parser)
 
@@ -112,13 +120,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "convert":
         if not args.pending:
             parser.error("convert currently requires --pending")
-        if args.fixture_output:
+        converter_name = args.converter or ("local-fixture" if args.fixture_output else "mineru-api")
+        if converter_name == "local-fixture":
+            if not args.fixture_output:
+                parser.error("--converter local-fixture requires --fixture-output")
             converter = LocalFixtureConverter(Path(args.fixture_output))
-        else:
+        elif converter_name == "mineru-api":
             from .converters.mineru import MinerUConverter
 
             converter = MinerUConverter()
-        converted = convert_pending(Path(args.library), converter)
+        elif converter_name == "mineru-api-batch":
+            from .converters.mineru_api_batch import MinerUApiBatchConverter
+
+            converter = MinerUApiBatchConverter(batch_size=args.batch_size)
+        else:
+            from .converters.mineru_local import MinerULocalConverter
+
+            converter = MinerULocalConverter(local_backend=args.local_backend)
+        jobs = args.jobs if args.jobs is not None else (2 if converter_name == "mineru-local" else 4)
+        converted = convert_pending(
+            Path(args.library),
+            converter,
+            batch_size=args.batch_size,
+            jobs=jobs,
+        )
         _emit({"ok": True, "converted": [str(path) for path in converted]}, args.json)
         return 0
     if args.command == "list":

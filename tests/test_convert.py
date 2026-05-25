@@ -2,8 +2,11 @@ import io
 import json
 import zipfile
 
+import pytest
+
 from paper_cli.cli import main
 from paper_cli.convert import convert_pending
+from paper_cli.converters.base import BatchConversionResult
 from paper_cli.converters.local_zip import LocalFixtureConverter
 from paper_cli.converters.mineru import MinerUConverter
 from paper_cli.models import read_paper, write_paper
@@ -55,6 +58,31 @@ def test_convert_pending_writes_markdown_and_renames(tmp_path):
     renamed = library / "inbox" / "Zhang et al. - 2025 - Better Paper Title"
     assert (renamed / "paper.md").exists()
     assert (renamed / "conversion.json").exists()
+
+
+def test_convert_pending_strips_private_use_title_glyphs(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text(
+        "# Better Paper Title \ue907\nAuthors: Zhang\nYear: 2025\n",
+        encoding="utf-8",
+    )
+    (fixture / "images").mkdir()
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    renamed = library / "inbox" / "Zhang et al. - 2025 - Better Paper Title"
+    record = read_paper(renamed)
+    assert record.metadata["title"] == "Better Paper Title"
+    assert (renamed / "paper.md").exists()
 
 
 def test_convert_pending_writes_diagnostic_conversion_json(tmp_path):
@@ -347,6 +375,168 @@ def test_convert_pending_does_not_overwrite_high_confidence_creator(tmp_path):
     assert converted.metadata["creators"] == [{"name": "Correct Author", "role": "author"}]
     assert converted.metadata_sources["creators"] == "user"
     assert converted.metadata_confidence["creators"] == "high"
+
+
+def test_convert_cli_accepts_explicit_local_fixture_converter(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text("# Explicit Fixture\n", encoding="utf-8")
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(
+            [
+                "--library",
+                str(library),
+                "convert",
+                "--pending",
+                "--converter",
+                "local-fixture",
+                "--fixture-output",
+                str(fixture),
+            ]
+        )
+        == 0
+    )
+
+    assert (library / "inbox" / "Explicit Fixture" / "paper.md").exists()
+
+
+def test_convert_cli_rejects_unknown_converter():
+    with pytest.raises(SystemExit):
+        main(["convert", "--pending", "--converter", "unknown"])
+
+
+def test_convert_cli_selects_existing_mineru_api_converter(tmp_path, monkeypatch):
+    selected = {}
+
+    class FakeMinerUConverter:
+        name = "mineru"
+
+        def __init__(self):
+            selected["called"] = True
+
+    monkeypatch.setattr("paper_cli.converters.mineru.MinerUConverter", FakeMinerUConverter)
+    monkeypatch.setattr("paper_cli.cli.convert_pending", lambda library, converter, **kwargs: [])
+
+    assert main(["--library", str(tmp_path / "library"), "convert", "--pending", "--converter", "mineru-api"]) == 0
+    assert selected["called"] is True
+
+
+def test_convert_pending_batch_converter_writes_success_and_failure(tmp_path):
+    class FakeBatchConverter:
+        name = "fake-batch"
+
+        def convert_batch(self, items, output_dir, *, jobs=1):
+            assert len(items) == 2
+            results = []
+            for item in items:
+                if item.bundle_dir.name.startswith("A"):
+                    markdown = item.output_dir / "paper.md"
+                    item.output_dir.mkdir(parents=True, exist_ok=True)
+                    markdown.write_text("# Batch Success\n", encoding="utf-8")
+                    (item.output_dir / "images").mkdir()
+                    results.append(
+                        BatchConversionResult(
+                            bundle_dir=item.bundle_dir,
+                            ok=True,
+                            markdown_path=markdown,
+                            images_dir=item.output_dir / "images",
+                        )
+                    )
+                else:
+                    results.append(
+                        BatchConversionResult(
+                            bundle_dir=item.bundle_dir,
+                            ok=False,
+                            error="remote item failed",
+                        )
+                    )
+            return results
+
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    for name in ["A.pdf", "B.pdf"]:
+        pdf = tmp_path / name
+        pdf.write_bytes(f"%PDF-1.4\n{name}\n".encode())
+        main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    converted = convert_pending(library, FakeBatchConverter(), batch_size=2)
+
+    assert len(converted) == 1
+    assert (library / "inbox" / "Batch Success" / "paper.md").exists()
+    failed_record = read_paper(library / "inbox" / "B")
+    assert failed_record.status["conversion"] == "failed"
+    failed_payload = json.loads((library / "inbox" / "B" / "conversion.json").read_text())
+    assert failed_payload["state"] == "failed"
+    assert failed_payload["error"] == "remote item failed"
+
+
+def test_convert_pending_batch_records_interrupted_jobs_before_reraising(tmp_path):
+    class InterruptingBatchConverter:
+        name = "interrupting-batch"
+
+        def convert_batch(self, items, output_dir, *, jobs=1):
+            raise KeyboardInterrupt()
+
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    for name in ["A.pdf", "B.pdf"]:
+        pdf = tmp_path / name
+        pdf.write_bytes(f"%PDF-1.4\n{name}\n".encode())
+        main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    with pytest.raises(KeyboardInterrupt):
+        convert_pending(library, InterruptingBatchConverter(), batch_size=2)
+
+    for bundle_name in ["A", "B"]:
+        bundle = library / "inbox" / bundle_name
+        record = read_paper(bundle)
+        payload = json.loads((bundle / "conversion.json").read_text(encoding="utf-8"))
+        assert record.status["conversion"] == "failed"
+        assert payload["state"] == "interrupted"
+        assert payload["converter"] == "interrupting-batch"
+
+    events = [
+        json.loads(line)
+        for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["state"] for event in events] == [
+        "running",
+        "running",
+        "interrupted",
+        "interrupted",
+    ]
+
+
+def test_convert_pending_batch_does_not_start_future_chunks_on_interruption(tmp_path):
+    class InterruptingBatchConverter:
+        name = "interrupting-batch"
+
+        def convert_batch(self, items, output_dir, *, jobs=1):
+            raise KeyboardInterrupt()
+
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    for name in ["A.pdf", "B.pdf", "C.pdf"]:
+        pdf = tmp_path / name
+        pdf.write_bytes(f"%PDF-1.4\n{name}\n".encode())
+        main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    with pytest.raises(KeyboardInterrupt):
+        convert_pending(library, InterruptingBatchConverter(), batch_size=2)
+
+    assert not (library / "inbox" / "C" / "conversion.json").exists()
+    events = [
+        json.loads(line)
+        for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(events) == 4
+    assert {event["bundle_path"] for event in events} == {"inbox/A", "inbox/B"}
 
 
 def test_mineru_converter_fails_without_api_key(tmp_path, monkeypatch):

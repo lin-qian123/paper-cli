@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 INVALID_FILENAME_CHARS = r'[\/:*?"<>|]+'
+STRIP_UNICODE_CATEGORIES = {"Cc", "Cf", "Co", "Cs"}
+
+
+def remove_problematic_unicode(value: str) -> str:
+    return "".join(
+        ch for ch in value if unicodedata.category(ch) not in STRIP_UNICODE_CATEGORIES
+    )
 
 
 def _first_creator(metadata: dict) -> str:
@@ -50,7 +58,8 @@ def normalize_spaces(value: str) -> str:
 
 
 def sanitize_name(value: str, max_length: int = 180) -> str:
-    safe = re.sub(INVALID_FILENAME_CHARS, "-", value)
+    safe = remove_problematic_unicode(value)
+    safe = re.sub(INVALID_FILENAME_CHARS, "-", safe)
     safe = re.sub(r"[\x00-\x1f]", "", safe)
     safe = normalize_spaces(safe)
     safe = safe.strip(" .-_")

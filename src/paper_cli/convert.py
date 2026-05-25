@@ -6,11 +6,11 @@ import shutil
 from pathlib import Path
 
 from .config import load_config
-from .converters.base import Converter
+from .converters.base import BatchConversionItem, BatchConversionResult, ConversionResult, Converter
 from .indexes import append_job, find_paper_dirs, rebuild_papers_index
 from .metadata import detect_language, normalize_creators
 from .models import PaperRecord, read_paper, utc_now_iso, write_paper
-from .naming import render_name, resolve_duplicate_name, sanitize_name
+from .naming import remove_problematic_unicode, render_name, resolve_duplicate_name, sanitize_name
 
 
 def extract_metadata_from_markdown(markdown: str) -> dict:
@@ -26,9 +26,9 @@ def extract_metadata_details_from_markdown(
     for line in markdown.splitlines():
         stripped = line.strip()
         if title is None and stripped.startswith("# "):
-            title = stripped[2:].strip()
+            title = remove_problematic_unicode(stripped[2:]).strip()
         elif stripped.lower().startswith("authors:"):
-            creator = stripped.split(":", 1)[1].strip()
+            creator = remove_problematic_unicode(stripped.split(":", 1)[1]).strip()
         elif stripped.lower().startswith("year:"):
             value = stripped.split(":", 1)[1].strip()
             match = re.search(r"\d{4}", value)
@@ -212,6 +212,9 @@ def _write_conversion_json(
     markdown_path: Path | None = None,
     images_dir: Path | None = None,
     raw_output_dir: str | None = None,
+    batch_id: str | None = None,
+    data_id: str | None = None,
+    remote_state: str | None = None,
 ) -> None:
     payload = {
         "schema_version": 1,
@@ -226,6 +229,12 @@ def _write_conversion_json(
         "markdown": _relative_output_path(bundle_dir, markdown_path, "paper.md"),
         "images": _relative_output_path(bundle_dir, images_dir, "images"),
     }
+    if batch_id:
+        payload["batch_id"] = batch_id
+    if data_id:
+        payload["data_id"] = data_id
+    if remote_state:
+        payload["remote_state"] = remote_state
     (bundle_dir / "conversion.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -250,6 +259,9 @@ def _append_conversion_job(
     state: str,
     ok: bool | None = None,
     error: str | None = None,
+    batch_id: str | None = None,
+    data_id: str | None = None,
+    remote_state: str | None = None,
 ) -> None:
     payload = {
         "event": event,
@@ -264,10 +276,224 @@ def _append_conversion_job(
         payload["ok"] = ok
     if error:
         payload["error"] = error
+    if batch_id:
+        payload["batch_id"] = batch_id
+    if data_id:
+        payload["data_id"] = data_id
+    if remote_state:
+        payload["remote_state"] = remote_state
     append_job(library_dir, payload)
 
 
-def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
+def _raw_output_dir_for_converter(converter_name: str) -> str | None:
+    if converter_name in {"mineru", "mineru-api-batch", "mineru-local"}:
+        return "raw/mineru"
+    return None
+
+
+def _finish_conversion_result(
+    library_dir: Path,
+    bundle_dir: Path,
+    record: PaperRecord,
+    *,
+    converter_name: str,
+    attempt: int,
+    submitted_at: str,
+    result: ConversionResult | BatchConversionResult,
+) -> Path | None:
+    if not result.ok:
+        record.status["conversion"] = "failed"
+        write_paper(bundle_dir, record)
+        _write_conversion_json(
+            bundle_dir,
+            converter_name=converter_name,
+            attempt=attempt,
+            submitted_at=submitted_at,
+            ok=False,
+            state="failed",
+            error=result.error,
+            markdown_path=result.markdown_path,
+            images_dir=result.images_dir,
+            batch_id=getattr(result, "batch_id", None),
+            data_id=getattr(result, "data_id", None),
+            remote_state=getattr(result, "remote_state", None),
+        )
+        _append_conversion_job(
+            library_dir,
+            bundle_dir,
+            record,
+            event="conversion-finished",
+            converter_name=converter_name,
+            attempt=attempt,
+            state="failed",
+            ok=False,
+            error=result.error,
+            batch_id=getattr(result, "batch_id", None),
+            data_id=getattr(result, "data_id", None),
+            remote_state=getattr(result, "remote_state", None),
+        )
+        return None
+
+    markdown_path = result.markdown_path or (bundle_dir / "paper.md")
+    metadata_update, update_sources, update_confidence = extract_metadata_details_from_markdown(
+        markdown_path.read_text(encoding="utf-8")
+    )
+    bad_title = bad_converted_title(
+        str(record.metadata.get("title") or ""),
+        str(metadata_update.get("title") or ""),
+    )
+    if bad_title:
+        metadata_update = dict(metadata_update)
+        update_sources = dict(update_sources)
+        update_confidence = dict(update_confidence)
+        metadata_update.pop("title", None)
+        update_sources.pop("title", None)
+        update_confidence.pop("title", None)
+    (
+        record.metadata,
+        record.metadata_sources,
+        record.metadata_confidence,
+    ) = _merge_metadata(
+        record.metadata,
+        record.metadata_sources,
+        record.metadata_confidence,
+        metadata_update,
+        update_sources,
+        update_confidence,
+    )
+    record.status["conversion"] = "done"
+    record.status["metadata"] = "complete" if record.metadata.get("title") else "partial"
+    record.status["naming"] = "review" if bad_title else "metadata"
+    write_paper(bundle_dir, record)
+    _write_conversion_json(
+        bundle_dir,
+        converter_name=converter_name,
+        attempt=attempt,
+        submitted_at=submitted_at,
+        ok=True,
+        state="done",
+        markdown_path=markdown_path,
+        images_dir=result.images_dir or (bundle_dir / "images"),
+        raw_output_dir=_raw_output_dir_for_converter(converter_name),
+        batch_id=getattr(result, "batch_id", None),
+        data_id=getattr(result, "data_id", None),
+        remote_state=getattr(result, "remote_state", None),
+    )
+    renamed_bundle = maybe_rename_bundle(library_dir, bundle_dir, record)
+    _append_conversion_job(
+        library_dir,
+        renamed_bundle,
+        record,
+        event="conversion-finished",
+        converter_name=converter_name,
+        attempt=attempt,
+        state="done",
+        ok=True,
+        batch_id=getattr(result, "batch_id", None),
+        data_id=getattr(result, "data_id", None),
+        remote_state=getattr(result, "remote_state", None),
+    )
+    return renamed_bundle
+
+
+def _convert_pending_batch(
+    library_dir: Path,
+    converter,
+    *,
+    batch_size: int,
+    jobs: int,
+) -> list[Path]:
+    converted: list[Path] = []
+    converter_name = _converter_name(converter)
+    pending: list[BatchConversionItem] = []
+    records: dict[Path, PaperRecord] = {}
+    for bundle_dir in find_paper_dirs(library_dir):
+        record = read_paper(bundle_dir)
+        if record.status.get("conversion") == "done":
+            continue
+        attempt = _read_previous_attempt(bundle_dir) + 1
+        submitted_at = utc_now_iso()
+        records[bundle_dir] = record
+        pending.append(
+            BatchConversionItem(
+                bundle_dir=bundle_dir,
+                source_pdf=bundle_dir / "original.pdf",
+                output_dir=bundle_dir,
+                paper_id=record.id,
+                attempt=attempt,
+                submitted_at=submitted_at,
+            )
+        )
+
+    for start in range(0, len(pending), batch_size):
+        chunk = pending[start : start + batch_size]
+        for item in chunk:
+            _append_conversion_job(
+                library_dir,
+                item.bundle_dir,
+                records[item.bundle_dir],
+                event="conversion-started",
+                converter_name=converter_name,
+                attempt=item.attempt,
+                state="running",
+            )
+        try:
+            results = converter.convert_batch(chunk, library_dir, jobs=jobs)
+        except (KeyboardInterrupt, SystemExit) as exc:
+            error = exc.__class__.__name__
+            for item in chunk:
+                record = records[item.bundle_dir]
+                record.status["conversion"] = "failed"
+                write_paper(item.bundle_dir, record)
+                _write_conversion_json(
+                    item.bundle_dir,
+                    converter_name=converter_name,
+                    attempt=item.attempt,
+                    submitted_at=item.submitted_at,
+                    ok=False,
+                    state="interrupted",
+                    error=error,
+                )
+                _append_conversion_job(
+                    library_dir,
+                    item.bundle_dir,
+                    record,
+                    event="conversion-finished",
+                    converter_name=converter_name,
+                    attempt=item.attempt,
+                    state="interrupted",
+                    ok=False,
+                    error=error,
+                )
+            rebuild_papers_index(library_dir)
+            raise
+        for result in results:
+            item = next(item for item in chunk if item.bundle_dir == result.bundle_dir)
+            renamed_bundle = _finish_conversion_result(
+                library_dir,
+                result.bundle_dir,
+                records[result.bundle_dir],
+                converter_name=converter_name,
+                attempt=item.attempt,
+                submitted_at=item.submitted_at,
+                result=result,
+            )
+            if renamed_bundle is not None:
+                converted.append(renamed_bundle)
+    rebuild_papers_index(library_dir)
+    return converted
+
+
+def convert_pending(
+    library_dir: Path,
+    converter: Converter,
+    *,
+    batch_size: int = 20,
+    jobs: int = 1,
+) -> list[Path]:
+    if hasattr(converter, "convert_batch"):
+        return _convert_pending_batch(library_dir, converter, batch_size=batch_size, jobs=jobs)
+
     converted: list[Path] = []
     converter_name = _converter_name(converter)
     for bundle_dir in find_paper_dirs(library_dir):
@@ -313,86 +539,16 @@ def convert_pending(library_dir: Path, converter: Converter) -> list[Path]:
             )
             rebuild_papers_index(library_dir)
             raise
-        if not result.ok:
-            record.status["conversion"] = "failed"
-            write_paper(bundle_dir, record)
-            _write_conversion_json(
-                bundle_dir,
-                converter_name=converter_name,
-                attempt=attempt,
-                submitted_at=submitted_at,
-                ok=False,
-                state="failed",
-                error=result.error,
-                markdown_path=result.markdown_path,
-                images_dir=result.images_dir,
-            )
-            _append_conversion_job(
-                library_dir,
-                bundle_dir,
-                record,
-                event="conversion-finished",
-                converter_name=converter_name,
-                attempt=attempt,
-                state="failed",
-                ok=False,
-                error=result.error,
-            )
-            continue
-
-        markdown_path = result.markdown_path or (bundle_dir / "paper.md")
-        metadata_update, update_sources, update_confidence = extract_metadata_details_from_markdown(
-            markdown_path.read_text(encoding="utf-8")
-        )
-        bad_title = bad_converted_title(
-            str(record.metadata.get("title") or ""),
-            str(metadata_update.get("title") or ""),
-        )
-        if bad_title:
-            metadata_update = dict(metadata_update)
-            update_sources = dict(update_sources)
-            update_confidence = dict(update_confidence)
-            metadata_update.pop("title", None)
-            update_sources.pop("title", None)
-            update_confidence.pop("title", None)
-        (
-            record.metadata,
-            record.metadata_sources,
-            record.metadata_confidence,
-        ) = _merge_metadata(
-            record.metadata,
-            record.metadata_sources,
-            record.metadata_confidence,
-            metadata_update,
-            update_sources,
-            update_confidence,
-        )
-        record.status["conversion"] = "done"
-        record.status["metadata"] = "complete" if record.metadata.get("title") else "partial"
-        record.status["naming"] = "review" if bad_title else "metadata"
-        write_paper(bundle_dir, record)
-        _write_conversion_json(
+        renamed_bundle = _finish_conversion_result(
+            library_dir,
             bundle_dir,
+            record,
             converter_name=converter_name,
             attempt=attempt,
             submitted_at=submitted_at,
-            ok=True,
-            state="done",
-            markdown_path=markdown_path,
-            images_dir=result.images_dir or (bundle_dir / "images"),
-            raw_output_dir="raw/mineru" if converter_name == "mineru" else None,
+            result=result,
         )
-        renamed_bundle = maybe_rename_bundle(library_dir, bundle_dir, record)
-        _append_conversion_job(
-            library_dir,
-            renamed_bundle,
-            record,
-            event="conversion-finished",
-            converter_name=converter_name,
-            attempt=attempt,
-            state="done",
-            ok=True,
-        )
-        converted.append(renamed_bundle)
+        if renamed_bundle is not None:
+            converted.append(renamed_bundle)
     rebuild_papers_index(library_dir)
     return converted

@@ -23,6 +23,9 @@ The file exists after a conversion attempt has run.
   "converted_at": "2026-05-13T00:01:00+00:00",
   "error": null,
   "raw_output_dir": "raw/mineru",
+  "batch_id": "mineru-batch-id",
+  "data_id": "sha256:...",
+  "remote_state": "done",
   "markdown": "paper.md",
   "images": "images"
 }
@@ -49,14 +52,17 @@ The file exists after a conversion attempt has run.
 ## Field Meanings
 
 - `schema_version`: integer schema version. Current value is `1`.
-- `converter`: converter name, such as `mineru` or `local-fixture`.
+- `converter`: converter name, such as `mineru`, `mineru-api-batch`, `mineru-local`, or `local-fixture`.
 - `ok`: whether the latest conversion attempt succeeded.
-- `state`: latest conversion state. Current values are `done` or `failed`.
+- `state`: latest conversion state. Current values are `running`, `done`, `failed`, or `interrupted`.
 - `attempt`: conversion attempt number for this bundle. Failed bundles are retried with the next attempt number.
 - `submitted_at`: UTC timestamp immediately before converter execution starts.
 - `converted_at`: UTC timestamp for when this result was written.
 - `error`: `null` on success, diagnostic text on failure.
 - `raw_output_dir`: converter raw-output directory relative to the bundle, or `null`.
+- `batch_id`: optional remote MinerU batch identifier for `mineru-api-batch`.
+- `data_id`: optional per-file identifier used to map a MinerU batch item back to the paper bundle.
+- `remote_state`: optional remote item state reported by MinerU.
 - `markdown`: Markdown output path relative to the bundle.
 - `images`: images directory path relative to the bundle.
 
@@ -83,6 +89,6 @@ raw/
 {"event":"conversion-finished","at":"2026-05-13T00:01:00+00:00","paper_id":"sha256:...","bundle_path":"inbox/Example","converter":"mineru","attempt":1,"state":"done","ok":true}
 ```
 
-For failed conversions, the finish event uses `state: "failed"`, `ok: false`, and includes `error`.
+For failed conversions, the finish event uses `state: "failed"`, `ok: false`, and includes `error`. Batch conversion events may also include `batch_id`, `data_id`, and `remote_state`.
 
 Future readers should ignore unknown fields.
