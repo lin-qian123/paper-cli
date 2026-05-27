@@ -86,15 +86,41 @@ Local MinerU conversion uses an installed `mineru` executable:
 python3 -m paper_cli --library /path/to/paper-library convert --pending --converter mineru-local --local-backend pipeline --jobs 2 --json
 ```
 
-`--local-backend` is passed to MinerU as `-b`, for example `pipeline`. The local backend writes the same bundle contract as the cloud backends: `paper.md`, `images/`, `raw/mineru/`, and `conversion.json`.
+`--local-backend` is passed to MinerU as `-b`, for example `pipeline`. The executable and default local settings can also be stored in `paper-cli.yaml`:
 
-`paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions, dangling conversion job history, stale running conversions, and missing MinerU batch mapping fields, which is useful after batch conversion runs.
+```yaml
+mineru:
+  executable: /Volumes/PHILIPS/programs/mineru/.venv/bin/mineru
+  local_backend: pipeline
+  local_jobs: auto
+```
+
+`local_jobs: auto` is intentionally conservative and currently resolves to one local MinerU process unless `--jobs` or a numeric config value overrides it. The local backend writes the same bundle contract as the cloud backends: `paper.md`, `images/`, `raw/mineru/`, and `conversion.json`.
+
+`paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions, dangling conversion job history, stale running conversions, missing MinerU batch mapping fields, and configured local MinerU executable problems, which is useful after batch conversion runs.
 
 For tests and dry runs, `convert` can use fixture output instead of the network:
 
 ```bash
 python3 -m paper_cli --library /tmp/lib convert --pending --converter local-fixture --fixture-output /tmp/mineru-fixture --json
 ```
+
+For repeatable QED corpus validation, use the local validation helper. It samples PDFs deterministically, creates a symlink input folder and sample list, imports the sample, optionally converts it, runs doctor checks, counts artifacts, and writes a Markdown report under the requested library root:
+
+```bash
+python3 -m paper_cli validate qed \
+  --source /Volumes/PHILIPS/programs/paper-cache/QED \
+  --library-root /Volumes/PHILIPS/programs/paper-cache \
+  --count 30 \
+  --seed 20260525 \
+  --converter mineru-local \
+  --local-backend pipeline \
+  --jobs 1 \
+  --replace \
+  --json
+```
+
+Use `--no-convert` for a fast import/list/doctor validation without running MinerU.
 
 AI repair reads an OpenAI-compatible chat completions provider from environment variables:
 

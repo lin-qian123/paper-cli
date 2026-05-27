@@ -7,10 +7,10 @@ from pathlib import Path
 
 from .config import load_config
 from .converters.base import BatchConversionItem, BatchConversionResult, ConversionResult, Converter
+from .converters.mineru_metadata import extract_mineru_metadata
 from .indexes import append_job, find_paper_dirs, rebuild_papers_index
-from .metadata import detect_language, normalize_creators
 from .models import PaperRecord, read_paper, utc_now_iso, write_paper
-from .naming import remove_problematic_unicode, render_name, resolve_duplicate_name, sanitize_name
+from .naming import render_name, resolve_duplicate_name, sanitize_name
 
 
 def extract_metadata_from_markdown(markdown: str) -> dict:
@@ -20,40 +20,7 @@ def extract_metadata_from_markdown(markdown: str) -> dict:
 def extract_metadata_details_from_markdown(
     markdown: str,
 ) -> tuple[dict, dict[str, str], dict[str, str]]:
-    title = None
-    creator = None
-    year = None
-    for line in markdown.splitlines():
-        stripped = line.strip()
-        if title is None and stripped.startswith("# "):
-            title = remove_problematic_unicode(stripped[2:]).strip()
-        elif stripped.lower().startswith("authors:"):
-            creator = remove_problematic_unicode(stripped.split(":", 1)[1]).strip()
-        elif stripped.lower().startswith("year:"):
-            value = stripped.split(":", 1)[1].strip()
-            match = re.search(r"\d{4}", value)
-            if match:
-                year = int(match.group(0))
-    metadata: dict = {}
-    sources: dict[str, str] = {}
-    confidence: dict[str, str] = {}
-    if title:
-        metadata["title"] = title
-        sources["title"] = "mineru"
-        confidence["title"] = "high"
-    if creator:
-        metadata["creators"] = normalize_creators(creator)
-        sources["creators"] = "mineru"
-        confidence["creators"] = "high"
-    if year:
-        metadata["year"] = year
-        sources["year"] = "mineru"
-        confidence["year"] = "high"
-    if title or creator:
-        metadata["language"] = detect_language(f"{title or ''} {creator or ''}")
-        sources["language"] = "detected"
-        confidence["language"] = "medium"
-    return metadata, sources, confidence
+    return extract_mineru_metadata(markdown)
 
 
 def _normalize_title_for_match(value: str) -> str:
@@ -335,8 +302,9 @@ def _finish_conversion_result(
         return None
 
     markdown_path = result.markdown_path or (bundle_dir / "paper.md")
-    metadata_update, update_sources, update_confidence = extract_metadata_details_from_markdown(
-        markdown_path.read_text(encoding="utf-8")
+    metadata_update, update_sources, update_confidence = extract_mineru_metadata(
+        markdown_path.read_text(encoding="utf-8"),
+        existing=record.metadata,
     )
     bad_title = bad_converted_title(
         str(record.metadata.get("title") or ""),

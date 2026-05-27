@@ -23,6 +23,7 @@
 - [x] 实现 `mineru-api-batch`，支持受限 batch size、上传/下载并发、轮询和断点续跑。
 - [x] 实现 `mineru-local` 本地 CLI 后端，并将输出归一化到现有 bundle 契约。
 - [x] 新转换后端完成后，重新运行 QED random-30 或更大语料验证。
+- [ ] 执行 MinerU 产品化计划，覆盖本地环境管理、确定性元数据抽取、云端 batch 验证、共享归一化、本地并发自动调优和 QED 验证脚本化。
 
 ## AI 修复阶段
 
@@ -69,7 +70,33 @@
 - [ ] 为 `extracts/summary/summary.json` 和 `source-map.json` 增加专门契约文档。
 - [ ] 如果真实 provider 在大文献库上过慢，考虑增加更便宜的 graph 模式或 `--no-graph` 选项。
 
+## MinerU 产品化阶段
+
+状态：除真实大规模云端 batch 验证外，实现已完成。实现计划见 `docs/superpowers/specs/2026-05-26-paper-cli-mineru-productization-plan.md`。
+
+- [x] 将本地 MinerU 环境管理产品化：支持配置 executable，并在 strict doctor 中给出环境诊断。
+- [x] 改进 MinerU 转换后的确定性元数据抽取：先用本地可解释证据修正标题、作者、年份、DOI 等，再把不确定情况交给 AI repair。
+- [ ] 在网络稳定时补跑真实大规模 `mineru-api-batch` 验证。
+- [x] 抽出串行 API、batch API 和本地 CLI 共用的 MinerU 输出归一化模块。
+- [x] 增加保守的本地 MinerU 并发自动调优，并明确 CLI/config 优先级。
+- [x] 将 QED 验证流程脚本化，使随机抽样、导入、转换、doctor、产物计数和报告生成可重复。
+
 ## 验证记录
+
+- 2026-05-26 MinerU 产品化实现与验证：
+  - 在 `paper-cli.yaml` 的 `mineru` 段增加配置化本地 MinerU 设置：`executable`、`local_backend`、`local_jobs` 和 `max_wait_seconds`。
+  - 增加本地 MinerU 环境解析，以及 strict doctor 对已配置但缺失或不可用 executable 的诊断。
+  - 抽出串行 API ZIP 输出、batch API ZIP 输出和本地 CLI 输出共用的 MinerU 输出归一化模块。
+  - 增加确定性 MinerU 元数据抽取：支持显式 `Authors:` / `Year:` 行、标题页作者行、DOI、arXiv ID、语言检测和 journal-label 标题拒绝。
+  - 增加保守的本地 jobs 自动调优；除非 CLI/config 显式覆盖，`auto` 解析为一个本地 MinerU 进程。
+  - 增加 `paper validate qed`，用于脚本化确定性 QED 抽样、symlink 输入目录创建、导入、可选转换、doctor 检查、产物计数和 Markdown 报告生成。
+  - `make verify` 通过：114 个测试通过，ruff 无问题。
+  - 在 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-dry-20260526` 运行 dry QED 验证，通过 `--no-convert` 抽样/导入 3 篇，并生成报告 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-dry-20260526-test-report.md`。
+  - 在 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-20260526` 运行完整本地 MinerU 验证，使用 `/Volumes/PHILIPS/programs/mineru/.venv/bin` 中的 MinerU 3.1.15，参数为 `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`。
+  - 最终验证结果：`sampled=30`、`imported=30`、`converted=30`、`failed=0`、`pending=0`、`incomplete_metadata=0`、`renamed=20`，strict doctor issues 为 `[]`。
+  - 产物计数为 30 个 bundle、30 个 `paper.md`、30 个 `images/`、30 个 `raw/mineru` 和 30 个 `conversion.json`。
+  - 针对路径分隔符、替换字符、私用区乱码、`SCIENTIFIC REPORTS` 和重复空格的命名异常扫描无命中。
+  - 完整验证报告：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-20260526-test-report.md`。
 
 - 2026-05-25：删除 `/Volumes/PHILIPS/programs/paper-cache` 下之前的 `paper-cli-*` 测试目录后，在 `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525` 重新运行 QED random-30 全流程验证。
   - 抽样清单：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-list.txt`；symlink 输入目录：`/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-input`。

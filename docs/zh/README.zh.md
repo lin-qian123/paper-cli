@@ -86,15 +86,41 @@ python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
 python3 -m paper_cli --library /path/to/paper-library convert --pending --converter mineru-local --local-backend pipeline --jobs 2 --json
 ```
 
-`--local-backend` 会作为 `-b` 传给 MinerU，例如 `pipeline`。本地后端写入与云端后端相同的 bundle 契约：`paper.md`、`images/`、`raw/mineru/` 和 `conversion.json`。
+`--local-backend` 会作为 `-b` 传给 MinerU，例如 `pipeline`。也可以在 `paper-cli.yaml` 中保存 executable 和本地默认设置：
 
-`paper doctor` 默认检查文献库结构完整性。`paper doctor --strict` 会额外报告 pending/failed 转换、悬空 conversion job、陈旧 running 转换和缺失的 MinerU batch 映射字段，适合批量转换后的成功率审计。
+```yaml
+mineru:
+  executable: /Volumes/PHILIPS/programs/mineru/.venv/bin/mineru
+  local_backend: pipeline
+  local_jobs: auto
+```
+
+`local_jobs: auto` 目前刻意保持保守，默认解析为一个本地 MinerU 进程，除非用 `--jobs` 或数字配置显式覆盖。本地后端写入与云端后端相同的 bundle 契约：`paper.md`、`images/`、`raw/mineru/` 和 `conversion.json`。
+
+`paper doctor` 默认检查文献库结构完整性。`paper doctor --strict` 会额外报告 pending/failed 转换、悬空 conversion job、陈旧 running 转换、缺失的 MinerU batch 映射字段，以及已配置的本地 MinerU executable 问题，适合批量转换后的成功率审计。
 
 测试或 dry run 可以用 fixture 输出，不走网络：
 
 ```bash
 python3 -m paper_cli --library /tmp/lib convert --pending --converter local-fixture --fixture-output /tmp/mineru-fixture --json
 ```
+
+QED 语料的重复验证可以使用本地 validation helper。它会确定性抽样 PDF，创建 symlink 输入目录和 sample list，导入样本，可选运行转换，执行 doctor 检查，统计产物，并在指定 library root 下写 Markdown 报告：
+
+```bash
+python3 -m paper_cli validate qed \
+  --source /Volumes/PHILIPS/programs/paper-cache/QED \
+  --library-root /Volumes/PHILIPS/programs/paper-cache \
+  --count 30 \
+  --seed 20260525 \
+  --converter mineru-local \
+  --local-backend pipeline \
+  --jobs 1 \
+  --replace \
+  --json
+```
+
+使用 `--no-convert` 可以只做快速导入/list/doctor 验证，不运行 MinerU。
 
 AI 修复使用 OpenAI-compatible chat completions provider，优先从环境变量读取：
 

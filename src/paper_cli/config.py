@@ -29,6 +29,12 @@ def default_config() -> dict[str, Any]:
             "default_mode": "fast",
             "language_detection": "auto",
         },
+        "mineru": {
+            "executable": "mineru",
+            "local_backend": None,
+            "local_jobs": "auto",
+            "max_wait_seconds": None,
+        },
         "output": {
             "json": False,
         },
@@ -51,7 +57,17 @@ def load_config(library_dir: Path) -> dict[str, Any]:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
         raise ValueError(f"Invalid config file: {config_path}")
-    return data
+    return _deep_merge(default_config(), data)
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def init_library(library_dir: Path) -> None:

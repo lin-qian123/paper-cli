@@ -9,9 +9,10 @@ from .ai.extract_summary import (
     DEFAULT_EXTRACT_SUMMARY_RETRIES,
     DEFAULT_EXTRACT_SUMMARY_WORKERS,
 )
-from .config import init_library
+from .config import init_library, load_config
 from .convert import convert_pending
 from .converters.local_zip import LocalFixtureConverter
+from .converters.mineru_jobs import resolve_local_jobs
 from .doctor import library_status, run_doctor
 from .importer import import_path
 from .indexes import find_paper_dirs
@@ -90,6 +91,27 @@ def build_parser() -> argparse.ArgumentParser:
     summary_parser.add_argument("--dry-run", action="store_true")
     add_json_flag(summary_parser)
 
+    validate_parser = subparsers.add_parser("validate", help="run local validation workflows")
+    validate_subparsers = validate_parser.add_subparsers(dest="validate_command")
+    qed_parser = validate_subparsers.add_parser("qed", help="run QED corpus validation")
+    qed_parser.add_argument("--source", required=True)
+    qed_parser.add_argument("--library-root", required=True)
+    qed_parser.add_argument("--count", type=int, default=30)
+    qed_parser.add_argument("--seed", type=int, default=20260525)
+    qed_parser.add_argument("--name")
+    qed_parser.add_argument(
+        "--converter",
+        choices=("mineru-api", "mineru-api-batch", "mineru-local", "local-fixture"),
+        default="mineru-local",
+    )
+    qed_parser.add_argument("--local-backend")
+    qed_parser.add_argument("--batch-size", type=int, default=1)
+    qed_parser.add_argument("--jobs", type=int)
+    qed_parser.add_argument("--fixture-output")
+    qed_parser.add_argument("--no-convert", action="store_true")
+    qed_parser.add_argument("--replace", action="store_true")
+    add_json_flag(qed_parser)
+
     return parser
 
 
@@ -136,8 +158,21 @@ def main(argv: list[str] | None = None) -> int:
         else:
             from .converters.mineru_local import MinerULocalConverter
 
-            converter = MinerULocalConverter(local_backend=args.local_backend)
-        jobs = args.jobs if args.jobs is not None else (2 if converter_name == "mineru-local" else 4)
+            config = load_config(Path(args.library))
+            converter = MinerULocalConverter(
+                executable=None,
+                local_backend=args.local_backend,
+                config=config,
+            )
+        if converter_name == "mineru-local":
+            pending_count = _pending_count(Path(args.library))
+            jobs = resolve_local_jobs(
+                load_config(Path(args.library)),
+                cli_jobs=args.jobs,
+                pending_count=pending_count,
+            )
+        else:
+            jobs = args.jobs if args.jobs is not None else 4
         converted = convert_pending(
             Path(args.library),
             converter,
@@ -265,4 +300,39 @@ def main(argv: list[str] | None = None) -> int:
             for row in payload["failed"]:
                 print(f"failed: {row['path']} - {row['error']}")
         return 0 if payload["ok"] else 1
+    if args.command == "validate":
+        if args.validate_command != "qed":
+            parser.error("validate currently requires a subcommand such as qed")
+        from .validation.qed import run_qed_validation
+
+        payload = run_qed_validation(
+            source=Path(args.source),
+            library_root=Path(args.library_root),
+            count=args.count,
+            seed=args.seed,
+            name=args.name,
+            converter_name=args.converter,
+            local_backend=args.local_backend,
+            batch_size=args.batch_size,
+            jobs=args.jobs,
+            fixture_output=Path(args.fixture_output) if args.fixture_output else None,
+            no_convert=args.no_convert,
+            replace=args.replace,
+        )
+        if args.json:
+            _emit(payload, True)
+        else:
+            print(f"library: {payload['library']}")
+            print(f"report: {payload['report']}")
+            print(f"ok: {payload['ok']}")
+        return 0 if payload["ok"] else 1
     return 0
+
+
+def _pending_count(library_dir: Path) -> int:
+    count = 0
+    for bundle_dir in find_paper_dirs(library_dir):
+        record = read_paper(bundle_dir)
+        if record.status.get("conversion") != "done":
+            count += 1
+    return count

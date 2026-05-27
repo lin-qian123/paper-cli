@@ -23,6 +23,7 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 - [x] Implement `mineru-api-batch` with bounded batch size, upload/download concurrency, polling, and resume.
 - [x] Implement `mineru-local` as a local CLI backend that normalizes output into the existing bundle contract.
 - [x] Re-run QED random-30 or larger corpus validation after the new conversion backends land.
+- [ ] Execute the MinerU productization plan for local environment management, deterministic metadata extraction, cloud batch validation, shared normalization, local concurrency auto-tuning, and scripted QED validation.
 
 ## AI Repair Phase
 
@@ -69,7 +70,33 @@ Status: first implementation complete and smoke-tested on `paper-libraries/full-
 - [ ] Add a dedicated contract document for `extracts/summary/summary.json` and `source-map.json`.
 - [ ] Consider a cheaper graph mode or `--no-graph` option if real-provider runs are too slow for large libraries.
 
+## MinerU Productization Phase
+
+Status: implementation complete except for real large-scale cloud batch validation. The implementation plan is `docs/superpowers/specs/2026-05-26-paper-cli-mineru-productization-plan.md`.
+
+- [x] Productize local MinerU environment management with config-driven executable resolution and strict doctor diagnostics.
+- [x] Improve deterministic MinerU metadata extraction from converted Markdown and local evidence before falling back to AI repair.
+- [ ] Run real large-scale `mineru-api-batch` validation when network conditions are stable.
+- [x] Extract shared MinerU output normalization for serial API, batch API, and local CLI outputs.
+- [x] Add conservative local MinerU concurrency auto-tuning with explicit CLI/config precedence.
+- [x] Script the QED validation workflow so random sampling, import, conversion, doctor, artifact counts, and report generation are repeatable.
+
 ## Validation Log
+
+- 2026-05-26 MinerU productization implementation and validation:
+  - Added config-driven local MinerU settings under `mineru` in `paper-cli.yaml`: `executable`, `local_backend`, `local_jobs`, and `max_wait_seconds`.
+  - Added local MinerU environment resolution and strict doctor diagnostics for configured missing or invalid executables.
+  - Added shared MinerU output normalization for serial API ZIP output, batch API ZIP output, and local CLI output.
+  - Added deterministic MinerU metadata extraction for explicit `Authors:` / `Year:` lines, title-page author lines, DOI, arXiv ID, language, and journal-label title rejection.
+  - Added conservative local jobs auto-tuning; `auto` resolves to one local MinerU process unless CLI/config explicitly overrides it.
+  - Added `paper validate qed` to script deterministic QED sampling, symlink input creation, import, optional conversion, doctor checks, artifact counts, and Markdown report generation.
+  - `make verify` passed with 114 tests and ruff clean.
+  - Dry QED validation under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-dry-20260526` passed with `--no-convert`, 3 sampled/imported papers, and report `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-dry-20260526-test-report.md`.
+  - Full local MinerU validation under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-20260526` used MinerU 3.1.15 from `/Volumes/PHILIPS/programs/mineru/.venv/bin`, `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`.
+  - Final validation result: `sampled=30`, `imported=30`, `converted=30`, `failed=0`, `pending=0`, `incomplete_metadata=0`, `renamed=20`, strict doctor issues `[]`.
+  - Artifact counts were 30 bundles, 30 `paper.md`, 30 `images/`, 30 `raw/mineru`, and 30 `conversion.json`.
+  - Naming anomaly scan for separators, replacement characters, private-use glyphs, `SCIENTIFIC REPORTS`, and repeated spaces returned no matches.
+  - Full validation report: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-20260526-test-report.md`.
 
 - 2026-05-25: Deleted the previous `/Volumes/PHILIPS/programs/paper-cache/paper-cli-*` test directories and reran a fresh QED random-30 validation under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525`.
   - Sample source list: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-list.txt`; symlink input folder: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-input`.
