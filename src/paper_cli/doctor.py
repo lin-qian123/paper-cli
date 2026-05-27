@@ -8,6 +8,11 @@ from pathlib import Path
 
 import yaml
 
+from .config import load_config
+from .converters.mineru_env import (
+    config_requests_local_mineru_check,
+    resolve_mineru_environment,
+)
 from .indexes import find_paper_dirs
 from .metadata import valid_creators
 from .models import read_paper
@@ -170,8 +175,36 @@ def run_doctor(library_dir: Path, *, strict: bool = False) -> list[Issue]:
                 )
             )
     if strict:
+        issues.extend(_strict_mineru_environment_issues(library_dir))
         issues.extend(_strict_conversion_issues(library_dir))
     return issues
+
+
+def _strict_mineru_environment_issues(library_dir: Path) -> list[Issue]:
+    try:
+        config = load_config(library_dir)
+    except Exception:
+        return []
+    if not config_requests_local_mineru_check(config):
+        return []
+    environment = resolve_mineru_environment(config, probe=True)
+    if not environment.exists:
+        return [
+            Issue(
+                "missing-mineru-local-executable",
+                str(library_dir / "paper-cli.yaml"),
+                environment.error or "MinerU executable was not found",
+            )
+        ]
+    if environment.error:
+        return [
+            Issue(
+                "invalid-mineru-local-executable",
+                environment.executable or "",
+                environment.error,
+            )
+        ]
+    return []
 
 
 def library_status(library_dir: Path) -> dict[str, int]:

@@ -5,8 +5,11 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from .base import BatchConversionItem, BatchConversionResult, ConversionResult
+from .mineru_env import resolve_mineru_environment
+from .mineru_normalize import normalize_mineru_directory
 
 
 class MinerULocalConverter:
@@ -15,12 +18,16 @@ class MinerULocalConverter:
     def __init__(
         self,
         *,
-        executable: str = "mineru",
+        executable: str | None = "mineru",
         local_backend: str | None = None,
         timeout: float | None = None,
+        config: dict[str, Any] | None = None,
     ):
-        self.executable = executable
-        self.local_backend = local_backend
+        self.config = config or {}
+        env = resolve_mineru_environment(self.config, cli_executable=executable)
+        self.executable = env.executable or executable or "mineru"
+        mineru_config = self.config.get("mineru", {}) if isinstance(self.config, dict) else {}
+        self.local_backend = local_backend if local_backend is not None else mineru_config.get("local_backend")
         self.timeout = timeout
 
     def convert(self, source_pdf: Path, output_dir: Path) -> ConversionResult:
@@ -63,44 +70,19 @@ class MinerULocalConverter:
         output_dir: Path,
         completed: subprocess.CompletedProcess,
     ) -> ConversionResult:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        markdown_files = sorted(tmp_output.glob("**/*.md"))
-        if not markdown_files:
+        try:
+            normalized = normalize_mineru_directory(tmp_output, output_dir)
+        except ValueError:
             return ConversionResult(
                 ok=False,
                 error="mineru CLI output did not contain Markdown",
                 raw={"stdout": completed.stdout, "stderr": completed.stderr},
             )
 
-        markdown_path = output_dir / "paper.md"
-        shutil.copy2(markdown_files[0], markdown_path)
-
-        images_dir = output_dir / "images"
-        if images_dir.exists():
-            shutil.rmtree(images_dir)
-        source_images = [
-            path for path in tmp_output.glob("**/images") if path.is_dir() and any(path.iterdir())
-        ]
-        if source_images:
-            shutil.copytree(source_images[0], images_dir)
-        else:
-            images_dir.mkdir(parents=True, exist_ok=True)
-
-        raw_dir = output_dir / "raw" / "mineru"
-        if raw_dir.exists():
-            shutil.rmtree(raw_dir)
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        for path in tmp_output.glob("**/*"):
-            if path.is_dir() or path == markdown_files[0] or "images" in path.relative_to(tmp_output).parts:
-                continue
-            target = raw_dir / "_".join(path.relative_to(tmp_output).parts)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
-
         return ConversionResult(
             ok=True,
-            markdown_path=markdown_path,
-            images_dir=images_dir,
+            markdown_path=normalized.markdown_path,
+            images_dir=normalized.images_dir,
             raw={"stdout": completed.stdout, "stderr": completed.stderr},
         )
 

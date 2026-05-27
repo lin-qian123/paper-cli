@@ -144,3 +144,21 @@ def test_doctor_strict_reports_batch_running_state_missing_mapping(tmp_path):
     issues = run_doctor(library, strict=True)
 
     assert any(issue.code == "missing-batch-conversion-mapping" for issue in issues)
+
+
+def test_doctor_strict_reports_missing_configured_mineru_executable(tmp_path):
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    (library / "paper-cli.yaml").write_text(
+        """
+schema_version: 1
+mineru:
+  executable: /missing/mineru
+  local_backend: pipeline
+""",
+        encoding="utf-8",
+    )
+
+    issues = run_doctor(library, strict=True)
+
+    assert any(issue.code == "missing-mineru-local-executable" for issue in issues)

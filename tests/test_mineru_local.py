@@ -55,6 +55,35 @@ def test_mineru_local_backend_adds_pipeline_flag(tmp_path, monkeypatch):
     assert commands[0][-2:] == ["-b", "pipeline"]
 
 
+def test_mineru_local_uses_configured_backend_and_executable(tmp_path, monkeypatch):
+    executable = tmp_path / "mineru"
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    pdf = tmp_path / "original.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    commands = []
+
+    def fake_run(command, capture_output, text, timeout, check):
+        commands.append(command)
+        out_dir = command[command.index("-o") + 1]
+        result = tmp_path / "mineru-out"
+        result.mkdir()
+        (result / "paper.md").write_text("# Configured\n", encoding="utf-8")
+        assert out_dir == str(result)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("paper_cli.converters.mineru_local.subprocess.run", fake_run)
+    monkeypatch.setattr("paper_cli.converters.mineru_local.tempfile.mkdtemp", lambda: str(tmp_path / "mineru-out"))
+
+    result = MinerULocalConverter(
+        executable=None,
+        config={"mineru": {"executable": str(executable), "local_backend": "pipeline"}},
+    ).convert(pdf, tmp_path / "bundle")
+
+    assert result.ok is True
+    assert commands[0][0] == str(executable)
+    assert commands[0][-2:] == ["-b", "pipeline"]
+
+
 def test_mineru_local_missing_cli_returns_clear_failure(tmp_path, monkeypatch):
     pdf = tmp_path / "original.pdf"
     pdf.write_bytes(b"%PDF-1.4\n")
