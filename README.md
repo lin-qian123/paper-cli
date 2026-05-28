@@ -41,7 +41,11 @@ paper import <pdf-or-folder> --inbox
 paper convert --pending
 paper convert --pending --converter mineru-api-batch --batch-size 20 --jobs 4
 paper convert --pending --converter mineru-local --local-backend pipeline --jobs 2
+paper convert --pending --dry-run
 paper list
+paper resolve <id-or-prefix-or-name-or-path>
+paper get <paper-id-or-query>
+paper inspect <paper-id-or-query>
 paper status
 paper doctor
 paper doctor --strict
@@ -70,13 +74,16 @@ make verify
 ## Basic Workflow
 
 ```bash
-python3 -m paper_cli init /path/to/paper-library
-python3 -m paper_cli --library /path/to/paper-library import /path/to/papers --collection "plasma/lwfa" --json
-python3 -m paper_cli --library /path/to/paper-library convert --pending --json
-python3 -m paper_cli --library /path/to/paper-library status --json
-python3 -m paper_cli --library /path/to/paper-library doctor --json
-python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
+uv run paper init /path/to/paper-library
+uv run paper --library /path/to/paper-library import /path/to/papers --collection "plasma/lwfa" --json
+uv run paper --library /path/to/paper-library convert --pending --dry-run --json
+uv run paper --library /path/to/paper-library convert --pending --json
+uv run paper --library /path/to/paper-library status --json
+uv run paper --library /path/to/paper-library doctor --json
+uv run paper --library /path/to/paper-library doctor --strict --json
 ```
+
+During development, prefer `uv run paper ...` from the repository. The package also exposes the console script `paper` when installed in editable mode.
 
 Real MinerU cloud conversion reads the API key from `MINERU_API_KEY`. The default `paper convert --pending` behavior remains the serial `mineru-api` backend. For larger libraries, use `--converter mineru-api-batch`; it submits MinerU precise API batches, caps API upload-link requests at 50 files, uploads/downloads with bounded concurrency, records `batch_id` / `data_id` in `conversion.json`, and resumes an existing running batch before submitting duplicates. `--batch-size` defaults to `20`, and `--jobs` defaults to `4` for cloud upload/download work. Network calls are retried, and long-running remote tasks are bounded by `MINERU_MAX_WAIT_SECONDS`, defaulting to 30 minutes per file or batch.
 
@@ -99,11 +106,31 @@ mineru:
 
 `paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions, dangling conversion job history, stale running conversions, missing MinerU batch mapping fields, and configured local MinerU executable problems, which is useful after batch conversion runs.
 
+`paper doctor --json` also reports setup diagnostics without printing secrets: library/config presence, MinerU API key availability, local MinerU executable information, and AI provider environment/config availability.
+
 For tests and dry runs, `convert` can use fixture output instead of the network:
 
 ```bash
 python3 -m paper_cli --library /tmp/lib convert --pending --converter local-fixture --fixture-output /tmp/mineru-fixture --json
 ```
+
+To plan a conversion without writing bundle files or contacting MinerU:
+
+```bash
+uv run paper --library /path/to/paper-library convert --pending --converter mineru-local --dry-run --json
+```
+
+The dry-run output includes the effective backend, batch size, jobs, pending bundles, setup diagnostics, and planned write targets.
+
+Agent-facing paper lookup commands:
+
+```bash
+uv run paper --library /path/to/paper-library resolve <id-prefix-or-name-or-path> --json
+uv run paper --library /path/to/paper-library get <paper-id-or-query> --json
+uv run paper --library /path/to/paper-library inspect <paper-id-or-query> --json
+```
+
+`resolve` turns a paper ID, ID prefix, title/name fragment, relative path, or bundle path into a single bundle. Ambiguous queries return non-zero with candidate matches. `get` returns the durable `paper.yaml` metadata surface, while `inspect` adds artifact presence plus parsed `conversion.json`, `repair.json`, and extract-summary JSON when present.
 
 For repeatable QED corpus validation, use the local validation helper. It samples PDFs deterministically, creates a symlink input folder and sample list, imports the sample, optionally converts it, runs doctor checks, counts artifacts, and writes a Markdown report under the requested library root:
 

@@ -12,7 +12,7 @@ def test_module_help_runs():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert "paper-cli" in result.stdout
+    assert "usage: paper" in result.stdout
 
 
 def test_init_creates_library_layout(tmp_path):

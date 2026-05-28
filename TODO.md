@@ -80,8 +80,18 @@ Status: implementation complete except for real large-scale cloud batch validati
 - [x] Extract shared MinerU output normalization for serial API, batch API, and local CLI outputs.
 - [x] Add conservative local MinerU concurrency auto-tuning with explicit CLI/config precedence.
 - [x] Script the QED validation workflow so random sampling, import, conversion, doctor, artifact counts, and report generation are repeatable.
+- [x] Harden the agent-facing CLI surface with clearer help, `resolve` / `get` / `inspect`, `convert --dry-run`, and richer `doctor --json` setup diagnostics.
 
 ## Validation Log
+
+- 2026-05-28 CLI surface hardening:
+  - Changed argparse help to present the executable as `paper` and added descriptions for important agent-facing flags.
+  - Added read-only `paper resolve`, `paper get`, and `paper inspect` commands for stable bundle lookup and artifact inspection by ID prefix, name/title fragment, relative path, absolute bundle path, or file path inside a bundle.
+  - Added `paper convert --pending --dry-run --json` to report the effective converter, batch size, jobs, pending bundles, setup diagnostics, and planned write targets without contacting MinerU or writing bundle files.
+  - Extended `paper doctor --json` with non-secret diagnostics for library/config presence, MinerU API key availability, local MinerU executable configuration, and AI provider configuration availability.
+  - Added `missing-library-config` as a doctor issue when a target directory has not been initialized with `paper init`.
+  - Updated `README.md`, `docs/contracts/cli-json.md`, and `docs/zh/contracts/cli-json.zh.md` for the new command surface and JSON shapes.
+  - Targeted verification passed: `uv run --extra dev pytest -v tests/test_cli_papers.py tests/test_doctor.py tests/test_config.py`.
 
 - 2026-05-26 MinerU productization implementation and validation:
   - Added config-driven local MinerU settings under `mineru` in `paper-cli.yaml`: `executable`, `local_backend`, `local_jobs`, and `max_wait_seconds`.

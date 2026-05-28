@@ -120,6 +120,14 @@ def _strict_conversion_file_issues(bundle_dir: Path) -> list[Issue]:
 
 def run_doctor(library_dir: Path, *, strict: bool = False) -> list[Issue]:
     issues: list[Issue] = []
+    if not (library_dir / "paper-cli.yaml").exists():
+        issues.append(
+            Issue(
+                "missing-library-config",
+                str(library_dir / "paper-cli.yaml"),
+                "Missing paper-cli.yaml; run paper init for this library",
+            )
+        )
     seen_ids: dict[str, Path] = {}
     for bundle_dir in find_paper_dirs(library_dir):
         metadata_path = bundle_dir / "paper.yaml"
@@ -178,6 +186,68 @@ def run_doctor(library_dir: Path, *, strict: bool = False) -> list[Issue]:
         issues.extend(_strict_mineru_environment_issues(library_dir))
         issues.extend(_strict_conversion_issues(library_dir))
     return issues
+
+
+def doctor_diagnostics(library_dir: Path, *, strict: bool = False) -> dict:
+    config_path = library_dir / "paper-cli.yaml"
+    diagnostics = {
+        "library": {
+            "path": str(library_dir),
+            "config_path": str(config_path),
+            "config_exists": config_path.exists(),
+            "inbox_exists": (library_dir / "inbox").is_dir(),
+            "collections_exists": (library_dir / "collections").is_dir(),
+            "indexes_exists": (library_dir / "indexes").is_dir(),
+        },
+        "mineru": {
+            "api_key_env": "MINERU_API_KEY",
+            "api_key_available": bool(os.environ.get("MINERU_API_KEY")),
+        },
+        "ai": _ai_diagnostics(library_dir),
+    }
+    try:
+        config = load_config(library_dir)
+    except Exception as exc:
+        diagnostics["config_error"] = str(exc)
+        return diagnostics
+
+    mineru_config = dict(config.get("mineru") or {})
+    diagnostics["mineru"].update(
+        {
+            "configured_executable": str(mineru_config.get("executable") or "mineru"),
+            "configured_local_backend": mineru_config.get("local_backend"),
+            "configured_local_jobs": mineru_config.get("local_jobs"),
+            "configured_max_wait_seconds": mineru_config.get("max_wait_seconds"),
+        }
+    )
+    if config_requests_local_mineru_check(config) or strict:
+        environment = resolve_mineru_environment(config, probe=strict)
+        diagnostics["mineru"].update(
+            {
+                "local_executable": environment.executable,
+                "local_executable_exists": environment.exists,
+                "local_version": environment.version,
+                "local_error": environment.error,
+            }
+        )
+    return diagnostics
+
+
+def _ai_diagnostics(library_dir: Path) -> dict:
+    try:
+        config = load_config(library_dir).get("ai", {})
+    except Exception:
+        config = {}
+    api_key_env = str(config.get("api_key_env") or "PAPER_AI_API_KEY")
+    base_url = os.environ.get("PAPER_AI_BASE_URL") or config.get("base_url")
+    model = os.environ.get("PAPER_AI_MODEL") or config.get("model")
+    return {
+        "provider": config.get("provider", "openai-compatible"),
+        "api_key_env": api_key_env,
+        "api_key_available": bool(os.environ.get(api_key_env) or os.environ.get("PAPER_AI_API_KEY")),
+        "base_url_configured": bool(base_url),
+        "model_configured": bool(model),
+    }
 
 
 def _strict_mineru_environment_issues(library_dir: Path) -> list[Issue]:

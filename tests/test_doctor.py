@@ -83,7 +83,9 @@ def test_doctor_strict_reports_failed_pending_and_dangling_jobs(tmp_path):
     assert any(issue.code == "dangling-conversion-job" for issue in strict_issues)
 
 
-def test_doctor_cli_strict_exits_nonzero_for_incomplete_batch(tmp_path, capsys):
+def test_doctor_cli_strict_exits_nonzero_for_incomplete_batch(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("MINERU_API_KEY", raising=False)
+    monkeypatch.delenv("PAPER_AI_API_KEY", raising=False)
     library = tmp_path / "library"
     pdf = tmp_path / "A et al. - 2025 - Pending Paper.pdf"
     pdf.write_bytes(b"%PDF-1.4\n")
@@ -94,6 +96,9 @@ def test_doctor_cli_strict_exits_nonzero_for_incomplete_batch(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
     assert any(issue["code"] == "pending-conversion" for issue in payload["issues"])
+    assert payload["diagnostics"]["library"]["config_exists"] is True
+    assert payload["diagnostics"]["mineru"]["api_key_available"] is False
+    assert payload["diagnostics"]["ai"]["api_key_available"] is False
 
 
 def test_doctor_strict_reports_stale_running_conversion(tmp_path, monkeypatch):

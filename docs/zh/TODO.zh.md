@@ -80,8 +80,18 @@
 - [x] 抽出串行 API、batch API 和本地 CLI 共用的 MinerU 输出归一化模块。
 - [x] 增加保守的本地 MinerU 并发自动调优，并明确 CLI/config 优先级。
 - [x] 将 QED 验证流程脚本化，使随机抽样、导入、转换、doctor、产物计数和报告生成可重复。
+- [x] 加固面向 agent 的 CLI 表面：更清晰的 help、`resolve` / `get` / `inspect`、`convert --dry-run` 和更完整的 `doctor --json` 配置诊断。
 
 ## 验证记录
+
+- 2026-05-28 CLI 表面加固：
+  - 将 argparse help 中展示的可执行名改为 `paper`，并为关键 agent-facing 参数补充说明。
+  - 增加只读命令 `paper resolve`、`paper get` 和 `paper inspect`，支持按 ID 前缀、名称/标题片段、相对路径、bundle 绝对路径或 bundle 内文件路径定位与检查论文 bundle。
+  - 增加 `paper convert --pending --dry-run --json`，在不调用 MinerU、不写 bundle 文件的情况下输出 converter、batch size、jobs、pending bundle、配置诊断和计划写入目标。
+  - 扩展 `paper doctor --json`，输出不含 secret 的 library/config、MinerU API key、本地 MinerU executable 和 AI provider 配置可用性诊断。
+  - 增加 `missing-library-config` doctor issue，用于提示目标目录尚未通过 `paper init` 初始化。
+  - 更新 `README.md`、`docs/contracts/cli-json.md` 和 `docs/zh/contracts/cli-json.zh.md`。
+  - 目标验证通过：`uv run --extra dev pytest -v tests/test_cli_papers.py tests/test_doctor.py tests/test_config.py`。
 
 - 2026-05-26 MinerU 产品化实现与验证：
   - 在 `paper-cli.yaml` 的 `mineru` 段增加配置化本地 MinerU 设置：`executable`、`local_backend`、`local_jobs` 和 `max_wait_seconds`。
