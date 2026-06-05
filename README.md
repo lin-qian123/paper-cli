@@ -14,6 +14,28 @@ The built-in AI repair phase is now usable as a conservative post-conversion rep
 
 The built-in AI extract summary phase is usable as a structured reading layer. `paper extract summary` creates block-level summaries, section-level skeletons, and a lightweight knowledge graph under `extracts/summary/`, with `source-map.json` preserving block IDs, line ranges, text hashes, and section paths for future side-by-side reading UIs.
 
+## Companion Research Plugin
+
+`paper-cli` is intentionally not a general literature search engine. Open-ended literature discovery, paper selection, author/team analysis, and research judgment should remain agent-led.
+
+The planned companion project is a separate sibling repository:
+
+```text
+/Users/yuxiangzhang/Documents/program/
+  paper-cli/
+  paper-research-plugin/
+```
+
+`paper-research-plugin` owns topic research, author/team research, single-paper research, research reports, executable import manifests, and ingest orchestration. It calls `paper-cli` as the local backend for import, conversion, summary extraction, inspection, and doctor checks.
+
+The design record lives in this repository because the plugin is tightly coupled to `paper-cli` contracts:
+
+```text
+docs/superpowers/specs/2026-06-05-paper-research-plugin-run-manifest-design.md
+```
+
+The plugin implementation should initially live outside `src/paper_cli/` and outside the core CLI command surface so the two projects can be published as separate GitHub repositories.
+
 The approved MVP direction is:
 
 - Import local PDF files or folders.

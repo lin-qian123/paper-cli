@@ -23,6 +23,7 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 - [x] Implement `mineru-api-batch` with bounded batch size, upload/download concurrency, polling, and resume.
 - [x] Implement `mineru-local` as a local CLI backend that normalizes output into the existing bundle contract.
 - [x] Re-run QED random-30 or larger corpus validation after the new conversion backends land.
+- [x] Write the run-manifest design for a future paper research plugin that keeps literature discovery in agent skills while using `paper-cli` for import, conversion, and summary extraction.
 - [ ] Execute the MinerU productization plan for local environment management, deterministic metadata extraction, cloud batch validation, shared normalization, local concurrency auto-tuning, and scripted QED validation.
 
 ## AI Repair Phase
