@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Local-folder MVP implemented and covered by tests. The first built-in AI repair phase is closed for now: OpenAI-compatible metadata repair, conservative Markdown repair, backups, `repair.json`, real-provider smoke tests, and suspicious-block hardening are implemented and verified. The second built-in AI layer, `paper extract summary`, is now implemented for structured article-skeleton extraction: block summaries, section summaries, lightweight graph extraction, and source traceability outputs under `extracts/summary/`.
+Local-folder MVP implemented and covered by tests. The first built-in AI repair phase is closed for now: OpenAI-compatible metadata repair, conservative Markdown repair, backups, `repair.json`, real-provider smoke tests, and suspicious-block hardening are implemented and verified. The second built-in AI layer, `paper extract summary`, is now implemented for structured article-skeleton extraction: block summaries, section summaries, lightweight graph extraction, and source traceability outputs under `extracts/summary/`. The third built-in AI layer, `paper memory build`, is now implemented for collection-level and library-level agent memory from existing summary outputs, with stale tracking and automatic refresh after successful summary extraction.
 
 ## Engineering Phase
 
@@ -71,6 +71,25 @@ Status: first implementation complete and smoke-tested on `paper-libraries/full-
 - [ ] Add a dedicated contract document for `extracts/summary/summary.json` and `source-map.json`.
 - [ ] Consider a cheaper graph mode or `--no-graph` option if real-provider runs are too slow for large libraries.
 
+## AI Memory Build Phase
+
+Status: first implementation complete and unit-tested. The implementation plan is `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md`.
+
+- [x] Confirm `paper memory build` should consume existing `paper extract summary` outputs only.
+- [x] Confirm missing `extracts/summary/summary.json` should be skipped and reported, not auto-generated.
+- [x] Confirm hierarchy: per-paper summaries remain the bottom layer, collection memories form the middle layer, and library memory forms the top layer.
+- [x] Confirm progressive-disclosure traceability through paper IDs, bundle paths, summary paths, source-map paths, section IDs, and block IDs.
+- [x] Write the implementation plan for `paper memory build`.
+- [x] Implement `paper memory build --dry-run --json` without requiring provider config.
+- [x] Implement summary/source-map discovery, validation, missing-summary skipping, and stale-source hash reporting.
+- [x] Implement collection-level memory synthesis and `_memory/collection-memory.json` / `_memory/collection-memory.md` / `_memory/paper-index.json` outputs.
+- [x] Implement library-level memory synthesis and `_memory/library-memory.json` / `_memory/library-memory.md` / `_memory/collection-index.json` outputs.
+- [x] Add fake-provider tests for dry-run, skip behavior, force overwrite, stale detection, ID validation, provider failures, and atomic writes.
+- [x] Run real-provider smoke test on `paper-libraries/full-smoke-library-optimized-v2` after implementation.
+- [x] Track memory stale state in `indexes/memory-state.json`.
+- [x] Mark memory stale after `import`, `convert`, and successful non-dry-run `repair` changes.
+- [x] Auto-refresh affected collection and library memory after successful non-dry-run `extract summary`.
+
 ## MinerU Productization Phase
 
 Status: implementation complete except for real large-scale cloud batch validation. The implementation plan is `docs/superpowers/specs/2026-05-26-paper-cli-mineru-productization-plan.md`.
@@ -84,6 +103,33 @@ Status: implementation complete except for real large-scale cloud batch validati
 - [x] Harden the agent-facing CLI surface with clearer help, `resolve` / `get` / `inspect`, `convert --dry-run`, and richer `doctor --json` setup diagnostics.
 
 ## Validation Log
+
+- 2026-06-06 AI memory auto-refresh and stale tracking:
+  - Added `indexes/memory-state.json` to persist paper/collection/library stale state.
+  - `import`, `convert`, and successful non-dry-run `repair` now mark affected memory stale instead of rebuilding memory immediately.
+  - Successful non-dry-run `extract summary` now automatically refreshes the affected collection and library memory using the same provider, and clears stale state on success.
+  - Added unit coverage for import stale marking, summary-triggered auto refresh, and repair-triggered stale marking.
+  - Targeted verification passed: `uv run --extra dev pytest -v tests/test_ai_extract_summary.py tests/test_ai_memory_build.py tests/test_ai_repair.py`.
+  - Real-provider incremental smoke test passed on `paper-libraries/full-smoke-library-optimized-v2`: `extract summary --paper sha256:f0a5909f --force --json` re-extracted 1 paper and returned `memory_refresh.ok=true` with fresh collection/library writes; `indexes/memory-state.json` ended with `library.stale=false`.
+
+- 2026-06-05 AI memory build real-provider smoke test:
+  - `memory build --dry-run --json` on `paper-libraries/full-smoke-library-optimized-v2` planned 1 collection memory and 1 library memory output, with `paper_count=5`, `skipped_paper_count=0`, and `stale=false`.
+  - Real provider `memory build --json` passed on `paper-libraries/full-smoke-library-optimized-v2`; it wrote `collections/双模照相/_memory/collection-memory.json`, `collection-memory.md`, `paper-index.json`, and library-root `_memory/library-memory.json`, `library-memory.md`, `collection-index.json`.
+  - After a compatibility fix for provider-returned collection paths, the final `library-memory.json` contained `warnings=[]`, one collection entry for `双模照相`, and a top-level `global_themes` list grounded in source paper IDs.
+
+- 2026-06-05 AI memory build implementation:
+  - Added `paper memory build` with `--collection`, `--limit`, `--force`, `--dry-run`, and `--json`.
+  - Added `src/paper_cli/ai/memory_build.py` to discover existing `extracts/summary/summary.json` inputs, validate traceability, build deterministic paper-level memory, synthesize collection/library memory through the OpenAI-compatible provider, and write `_memory/` outputs atomically.
+  - Implemented default skip behavior for existing collection/library memory outputs and stale detection based on summary hashes.
+  - Added fake-provider tests covering dry-run without provider config, collection/library writes, stale detection, force rebuild, provider failure without partial output, and missing-provider CLI failure.
+  - Targeted verification passed: `uv run --extra dev pytest -v tests/test_ai_extract_summary.py tests/test_ai_memory_build.py`.
+
+- 2026-06-05 AI memory build planning:
+  - Confirmed `paper memory build` should build hierarchical agent memory from existing `paper extract summary` outputs.
+  - Confirmed missing `summary.json` is skipped and reported; the command must not auto-run summary extraction.
+  - Planned output layers: per-paper summaries stay under `extracts/summary/`, collection memories live under collection `_memory/`, and library memory lives under library-root `_memory/`.
+  - Planned traceability contract: memory items should preserve paper IDs, bundle paths, summary paths, source-map paths, section IDs, and source block IDs for later frontend paragraph-summary alignment.
+  - Recorded the implementation plan in `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md`; implementation has not started.
 
 - 2026-05-28 CLI surface hardening:
   - Changed argparse help to present the executable as `paper` and added descriptions for important agent-facing flags.

@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-本地文件夹 MVP 已实现并有测试覆盖。第一阶段内置 AI repair 先告一段落：OpenAI-compatible 元数据修复、保守 Markdown 修复、备份、`repair.json`、真实 provider smoke test 和 suspicious-block 加固都已实现并验证。第二层内置 AI 功能 `paper extract summary` 已实现，用于结构化抽取文章骨架：block 总结、章节总结、轻量知识图谱，以及 `extracts/summary/` 下的原文追溯输出。
+本地文件夹 MVP 已实现并有测试覆盖。第一阶段内置 AI repair 先告一段落：OpenAI-compatible 元数据修复、保守 Markdown 修复、备份、`repair.json`、真实 provider smoke test 和 suspicious-block 加固都已实现并验证。第二层内置 AI 功能 `paper extract summary` 已实现，用于结构化抽取文章骨架：block 总结、章节总结、轻量知识图谱，以及 `extracts/summary/` 下的原文追溯输出。第三层内置 AI 功能 `paper memory build` 现已实现，用于基于已有 summary 输出构建 collection 级和 library 级 agent 记忆，并支持 stale 跟踪与 summary 成功后的自动刷新。
 
 ## 工程化阶段
 
@@ -70,6 +70,25 @@
 - [ ] 为 `extracts/summary/summary.json` 和 `source-map.json` 增加专门契约文档。
 - [ ] 如果真实 provider 在大文献库上过慢，考虑增加更便宜的 graph 模式或 `--no-graph` 选项。
 
+## AI Memory Build 阶段
+
+状态：第一版实现完成，并已通过单元测试。实现计划见 `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md`。
+
+- [x] 确认 `paper memory build` 只消费已有 `paper extract summary` 输出。
+- [x] 确认缺失 `extracts/summary/summary.json` 时跳过并报告，不自动生成。
+- [x] 确认层次：每篇论文的 summary 是底层记忆，collection memory 是中层，library memory 是顶层。
+- [x] 确认渐进式披露追溯：保留 paper id、bundle path、summary path、source-map path、section id 和 block id。
+- [x] 写好 `paper memory build` 实现计划。
+- [x] 实现无需 provider config 的 `paper memory build --dry-run --json`。
+- [x] 实现 summary/source-map 发现、校验、missing-summary 跳过和 stale source hash 报告。
+- [x] 实现 collection 级记忆生成，以及 `_memory/collection-memory.json` / `_memory/collection-memory.md` / `_memory/paper-index.json` 输出。
+- [x] 实现 library 级记忆生成，以及 `_memory/library-memory.json` / `_memory/library-memory.md` / `_memory/collection-index.json` 输出。
+- [x] 增加 fake-provider 测试，覆盖 dry-run、跳过策略、force 覆盖、stale 检测、ID 校验、provider 失败和原子写入。
+- [x] 实现后在 `paper-libraries/full-smoke-library-optimized-v2` 上运行真实 provider smoke test。
+- [x] 在 `indexes/memory-state.json` 中跟踪 memory stale 状态。
+- [x] 在 `import`、`convert` 和成功的非 dry-run `repair` 后标记对应 memory stale。
+- [x] 在成功的非 dry-run `extract summary` 后自动刷新对应 collection 和 library memory。
+
 ## MinerU 产品化阶段
 
 状态：除真实大规模云端 batch 验证外，实现已完成。实现计划见 `docs/superpowers/specs/2026-05-26-paper-cli-mineru-productization-plan.md`。
@@ -83,6 +102,33 @@
 - [x] 加固面向 agent 的 CLI 表面：更清晰的 help、`resolve` / `get` / `inspect`、`convert --dry-run` 和更完整的 `doctor --json` 配置诊断。
 
 ## 验证记录
+
+- 2026-06-06 AI memory 自动刷新与 stale 跟踪：
+  - 增加 `indexes/memory-state.json`，持久化 paper/collection/library 的 stale 状态。
+  - `import`、`convert` 和成功的非 dry-run `repair` 现在会先标记对应 memory stale，而不是立刻重建 memory。
+  - 成功的非 dry-run `extract summary` 现在会复用同一 provider 自动刷新对应 collection 和 library memory，并在成功后清除 stale 状态。
+  - 增加单元测试，覆盖 import 标脏、summary 触发自动刷新、repair 触发重新标脏。
+  - 目标验证通过：`uv run --extra dev pytest -v tests/test_ai_extract_summary.py tests/test_ai_memory_build.py tests/test_ai_repair.py`。
+  - 真实 provider 增量 smoke test 在 `paper-libraries/full-smoke-library-optimized-v2` 上通过：`extract summary --paper sha256:f0a5909f --force --json` 成功重抽 1 篇论文，并返回 `memory_refresh.ok=true`；最终 `indexes/memory-state.json` 中 `library.stale=false`。
+
+- 2026-06-05 AI memory build 真实 provider smoke test：
+  - 在 `paper-libraries/full-smoke-library-optimized-v2` 上运行 `memory build --dry-run --json`，成功规划 1 个 collection memory 和 1 个 library memory 输出，`paper_count=5`、`skipped_paper_count=0`、`stale=false`。
+  - 真实 provider `memory build --json` 在 `paper-libraries/full-smoke-library-optimized-v2` 上通过；写出 `collections/双模照相/_memory/collection-memory.json`、`collection-memory.md`、`paper-index.json`，以及 library root 的 `_memory/library-memory.json`、`library-memory.md`、`collection-index.json`。
+  - 修正 provider 返回 collection path 的兼容问题后，最终 `library-memory.json` 中 `warnings=[]`，包含 `双模照相` 的 collection entry，以及由 source paper id 支撑的顶层 `global_themes`。
+
+- 2026-06-05 AI memory build 实现：
+  - 增加 `paper memory build`，支持 `--collection`、`--limit`、`--force`、`--dry-run` 和 `--json`。
+  - 新增 `src/paper_cli/ai/memory_build.py`：发现已有 `extracts/summary/summary.json` 输入、校验追溯关系、构建确定性的论文级记忆、通过 OpenAI-compatible provider 合成 collection/library 级记忆，并原子写入 `_memory/` 输出。
+  - 实现已有 collection/library memory 的默认 skip 行为，以及基于 summary hash 的 stale 检测。
+  - 增加 fake-provider 测试，覆盖无 provider config 的 dry-run、collection/library 写入、stale 检测、force 重建、provider 失败不写半成品，以及缺失 provider 的 CLI 失败路径。
+  - 目标验证通过：`uv run --extra dev pytest -v tests/test_ai_extract_summary.py tests/test_ai_memory_build.py`。
+
+- 2026-06-05 AI memory build 规划：
+  - 确认 `paper memory build` 基于已有 `paper extract summary` 输出构建分层 agent 记忆。
+  - 确认缺失 `summary.json` 时跳过并报告；命令不能自动调用 summary extraction。
+  - 计划输出层级：每篇论文 summary 保持在 `extracts/summary/`，collection memory 写入 collection `_memory/`，library memory 写入 library root `_memory/`。
+  - 计划追溯契约：memory item 应保留 paper id、bundle path、summary path、source-map path、section id 和 source block id，方便后续前端段落-总结对齐。
+  - 已将实现计划记录到 `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md`；尚未开始实现。
 
 - 2026-05-28 CLI 表面加固：
   - 将 argparse help 中展示的可执行名改为 `paper`，并为关键 agent-facing 参数补充说明。

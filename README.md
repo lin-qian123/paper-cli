@@ -6,13 +6,15 @@ Its purpose is to make research papers easier for AI agents to manage and read. 
 
 ## Current Status
 
-Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through the serial MinerU API backend, the MinerU precise API batch backend, a local MinerU CLI backend, or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, repairing converted bundles with an OpenAI-compatible AI provider, and extracting AI article skeleton summaries from converted Markdown.
+Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through the serial MinerU API backend, the MinerU precise API batch backend, a local MinerU CLI backend, or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, repairing converted bundles with an OpenAI-compatible AI provider, extracting AI article skeleton summaries from converted Markdown, and building collection-level plus library-level agent memory from existing summary outputs.
 
 Recent real-library hardening added MinerU network retry/backoff, a per-file or per-batch MinerU wait limit, interrupted-conversion job cleanup, a strict doctor mode for batch audits, guards against OCR-damaged MinerU titles causing bad bundle renames, and selectable `mineru-api-batch` / `mineru-local` conversion backends.
 
 The built-in AI repair phase is now usable as a conservative post-conversion repair layer. It can repair metadata, rename bundles from repaired metadata, and patch low-risk Markdown extraction defects. Formula-heavy, table, reference, and math-heavy blocks are recorded as review-only warnings instead of being automatically rewritten.
 
-The built-in AI extract summary phase is usable as a structured reading layer. `paper extract summary` creates block-level summaries, section-level skeletons, and a lightweight knowledge graph under `extracts/summary/`, with `source-map.json` preserving block IDs, line ranges, text hashes, and section paths for future side-by-side reading UIs.
+The built-in AI extract summary phase is usable as a structured reading layer. `paper extract summary` creates block-level summaries, section-level skeletons, and a lightweight knowledge graph under `extracts/summary/`, with `source-map.json` preserving block IDs, line ranges, text hashes, and section paths for future side-by-side reading UIs. When summary extraction writes updated outputs, it now also refreshes the affected collection and library memory automatically.
+
+The built-in AI memory build phase is now usable as a higher-level memory layer. `paper memory build` consumes existing `extracts/summary/summary.json` outputs, skips missing summaries instead of auto-generating them, writes collection memory under collection `_memory/`, writes top-level library memory under library `_memory/`, preserves links back to paper IDs, bundle paths, summary paths, source-map paths, section IDs, and block IDs, and keeps dirty/stale state in `indexes/memory-state.json`.
 
 ## Companion Research Plugin
 
@@ -72,6 +74,7 @@ paper status
 paper doctor
 paper doctor --strict
 paper repair
+paper memory build
 paper extract summary
 ```
 
@@ -192,7 +195,17 @@ python3 -m paper_cli --library /path/to/paper-library extract summary --paper-wo
 python3 -m paper_cli --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
-`paper extract summary` defaults to converted bundles that do not already have `extracts/summary/summary.json`. Use `--force` to regenerate existing outputs, `--paper`, `--collection`, or `--limit` to control scope. Concurrency has three controls: `--paper-workers` for paper-level parallelism, `--workers` for per-paper block-batch parallelism, and `--max-requests` as a global provider request cap. `--paper-workers` and `--workers` default to `16`; `--max-requests` defaults to `500`. Per-paper workers are capped to the current paper count, and block workers are capped to the current paper's block-batch count. Provider requests are retried with `--retries` retries, default `2`, with a fixed 10-second wait between attempts. The command writes `summary.json`, `summary.md`, and `source-map.json`.
+`paper extract summary` defaults to converted bundles that do not already have `extracts/summary/summary.json`. Use `--force` to regenerate existing outputs, `--paper`, `--collection`, or `--limit` to control scope. Concurrency has three controls: `--paper-workers` for paper-level parallelism, `--workers` for per-paper block-batch parallelism, and `--max-requests` as a global provider request cap. `--paper-workers` and `--workers` default to `16`; `--max-requests` defaults to `500`. Per-paper workers are capped to the current paper count, and block workers are capped to the current paper's block-batch count. Provider requests are retried with `--retries` retries, default `2`, with a fixed 10-second wait between attempts. The command writes `summary.json`, `summary.md`, and `source-map.json`, then automatically refreshes the affected collection and library memory when extraction succeeds.
+
+AI memory build uses the same provider configuration but reads only existing summary outputs:
+
+```bash
+python3 -m paper_cli --library /path/to/paper-library memory build --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library memory build --collection dual-modality --json
+python3 -m paper_cli --library /path/to/paper-library memory build --force --json
+```
+
+`paper memory build` defaults to converted bundles that already have `extracts/summary/summary.json`. It skips missing summaries and reports them instead of auto-running `paper extract summary`. Collection memory is written to `collections/<collection>/_memory/collection-memory.json`, `collection-memory.md`, and `paper-index.json`. Top-level library memory is written to `_memory/library-memory.json`, `library-memory.md`, and `collection-index.json`. Existing memory outputs are skipped by default and marked stale when source summary hashes no longer match; use `--force` to rebuild them. Library-change commands such as `import`, `convert`, and `repair` mark memory stale in `indexes/memory-state.json`, and successful `extract summary` runs clear and refresh the affected memory automatically.
 
 ## Library Shape
 
@@ -201,6 +214,10 @@ paper-library/
   paper-cli.yaml
   collections/
     <collection-path>/
+      _memory/
+        collection-memory.json
+        collection-memory.md
+        paper-index.json
       <paper-name>/
         paper.yaml
         original.pdf
@@ -235,6 +252,11 @@ paper-library/
   indexes/
     papers.jsonl
     jobs.jsonl
+    memory-state.json
+  _memory/
+    library-memory.json
+    library-memory.md
+    collection-index.json
 ```
 
 ## Naming
@@ -271,7 +293,7 @@ Later phases:
 
 ## Development Notes
 
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md` for the MinerU conversion backend plan, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
+See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md` for the AI memory build design, `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md` for the MinerU conversion backend plan, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
 
 Contract docs:
 

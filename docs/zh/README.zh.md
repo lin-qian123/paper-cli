@@ -6,13 +6,15 @@
 
 ## 当前状态
 
-本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过串行 MinerU API、MinerU precise API 批量后端、本地 MinerU CLI 后端或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，通过 OpenAI-compatible provider 修复已转换 bundle，并从转换后的 Markdown 中抽取 AI 文章骨架摘要。
+本地文件夹 MVP 已经实现。当前代码支持初始化文献库、导入本地 PDF、通过串行 MinerU API、MinerU precise API 批量后端、本地 MinerU CLI 后端或 fixture 输出转换待处理 bundle、重建索引、列出论文、查看状态、运行文献库检查，通过 OpenAI-compatible provider 修复已转换 bundle，从转换后的 Markdown 中抽取 AI 文章骨架摘要，并基于已有 summary 输出构建 collection 级和 library 级 agent 记忆。
 
 最近一次真实文献库加固补上了 MinerU 网络重试/退避、单篇或单批 MinerU 等待上限、转换中断后的 job 收尾、用于批处理审计的 strict doctor 模式、防止 OCR 损坏标题导致错误重命名的质量门禁，以及可选择的 `mineru-api-batch` / `mineru-local` 转换后端。
 
 内置 AI repair 阶段已达到阶段性可用状态。它可以修复元数据、根据修复后的元数据同步重命名 bundle，并对低风险 Markdown 抽取缺陷做自动 patch。公式密集、表格、参考文献和数学密集 block 会记录为 `review_only` warning，而不是自动改写。
 
-内置 AI extract summary 阶段已可用。`paper extract summary` 会在 `extracts/summary/` 下生成 block 级总结、section 级骨架和轻量知识图谱，并通过 `source-map.json` 保存 block id、行号、文本 hash 和章节路径，方便后续做左右分栏阅读界面。
+内置 AI extract summary 阶段已可用。`paper extract summary` 会在 `extracts/summary/` 下生成 block 级总结、section 级骨架和轻量知识图谱，并通过 `source-map.json` 保存 block id、行号、文本 hash 和章节路径，方便后续做左右分栏阅读界面。summary 成功写入后，现在还会自动刷新对应 collection 和 library 的 memory。
+
+内置 AI memory build 阶段现已可用。`paper memory build` 只消费已有 `extracts/summary/summary.json` 输出；缺失 summary 时跳过并报告，不会自动补跑 summary extraction。它会在 collection `_memory/` 下写入 collection 级记忆，在 library root `_memory/` 下写入顶层记忆，保留 paper id、bundle path、summary path、source-map path、section id 和 block id 的追溯关系，并把脏状态记录到 `indexes/memory-state.json`。
 
 已经确认的 MVP 方向：
 
@@ -46,6 +48,7 @@ paper status
 paper doctor
 paper doctor --strict
 paper repair
+paper memory build
 paper extract summary
 ```
 
@@ -143,7 +146,17 @@ python3 -m paper_cli --library /path/to/paper-library extract summary --paper-wo
 python3 -m paper_cli --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
-`paper extract summary` 默认处理已转换且还没有 `extracts/summary/summary.json` 的 bundle。使用 `--force` 可重新生成已有输出，使用 `--paper`、`--collection` 或 `--limit` 可控制范围。并发有三层控制：`--paper-workers` 控制论文层并行，`--workers` 控制单篇论文内 block batch 并行，`--max-requests` 控制全局 provider 请求上限。`--paper-workers` 和 `--workers` 默认值为 `16`；`--max-requests` 默认值为 `500`。论文 worker 会按当前论文数裁剪，block worker 会按当前论文的 block batch 数裁剪。provider 请求会按 `--retries` 重试，默认重试 `2` 次；每次重试之间固定等待 10 秒。它会写入 `summary.json`、`summary.md` 和 `source-map.json`。
+`paper extract summary` 默认处理已转换且还没有 `extracts/summary/summary.json` 的 bundle。使用 `--force` 可重新生成已有输出，使用 `--paper`、`--collection` 或 `--limit` 可控制范围。并发有三层控制：`--paper-workers` 控制论文层并行，`--workers` 控制单篇论文内 block batch 并行，`--max-requests` 控制全局 provider 请求上限。`--paper-workers` 和 `--workers` 默认值为 `16`；`--max-requests` 默认值为 `500`。论文 worker 会按当前论文数裁剪，block worker 会按当前论文的 block batch 数裁剪。provider 请求会按 `--retries` 重试，默认重试 `2` 次；每次重试之间固定等待 10 秒。它会写入 `summary.json`、`summary.md` 和 `source-map.json`，并在成功后自动刷新受影响的 collection 和 library memory。
+
+AI memory build 复用同一套 provider 配置，但只读取已有 summary 输出：
+
+```bash
+python3 -m paper_cli --library /path/to/paper-library memory build --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library memory build --collection dual-modality --json
+python3 -m paper_cli --library /path/to/paper-library memory build --force --json
+```
+
+`paper memory build` 默认处理已经存在 `extracts/summary/summary.json` 的已转换 bundle。缺失 summary 时会跳过并报告，不会自动调用 `paper extract summary`。Collection 级记忆会写入 `collections/<collection>/_memory/collection-memory.json`、`collection-memory.md` 和 `paper-index.json`；顶层 library 记忆会写入 `_memory/library-memory.json`、`library-memory.md` 和 `collection-index.json`。已有 memory 输出默认跳过；当底层 summary hash 变化时会标记 stale，此时使用 `--force` 可重建。`import`、`convert`、`repair` 等会修改文献库状态的命令会在 `indexes/memory-state.json` 中标记 stale；成功的 `extract summary` 会自动清理并刷新对应 memory。
 
 ## 文献库结构
 
@@ -152,6 +165,10 @@ paper-library/
   paper-cli.yaml
   collections/
     <collection-path>/
+      _memory/
+        collection-memory.json
+        collection-memory.md
+        paper-index.json
       <paper-name>/
         paper.yaml
         original.pdf
@@ -175,17 +192,22 @@ paper-library/
       images/
       conversion.json
       repair.json
-      extracts/
-        summary/
-          summary.json
-          summary.md
-          source-map.json
+        extracts/
+          summary/
+            summary.json
+            summary.md
+            source-map.json
       backups/
       notes/
         README.md
   indexes/
     papers.jsonl
     jobs.jsonl
+    memory-state.json
+  _memory/
+    library-memory.json
+    library-memory.md
+    collection-index.json
 ```
 
 ## 命名
@@ -222,7 +244,7 @@ MVP：
 
 ## 开发说明
 
-当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，AI extract summary 设计见 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`，MinerU 转换后端计划见 `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
+当前任务列表见 [TODO.zh.md](TODO.zh.md)。MVP 设计见 [paper-cli-mvp-design.zh.md](paper-cli-mvp-design.zh.md)，工程化设计见 [paper-cli-engineering-design.zh.md](paper-cli-engineering-design.zh.md)。AI 修复层设计见 `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md`，AI extract summary 设计见 `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md`，AI memory build 设计见 `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md`，MinerU 转换后端计划见 `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md`，suspicious block 优化记录见 `docs/development/2026-05-21-ai-repair-suspicious-blocks.md`。
 
 契约和验证文档：
 

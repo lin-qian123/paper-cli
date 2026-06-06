@@ -10,6 +10,7 @@ from .ai.extract_summary import (
     DEFAULT_EXTRACT_SUMMARY_RETRIES,
     DEFAULT_EXTRACT_SUMMARY_WORKERS,
 )
+from .ai.memory_state import mark_bundles_stale
 from .config import init_library, load_config
 from .convert import convert_pending
 from .converters.local_zip import LocalFixtureConverter
@@ -85,6 +86,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     repair_parser.add_argument("--dry-run", action="store_true", help="plan repairs without writing files")
     add_json_flag(repair_parser)
+    memory_parser = subparsers.add_parser("memory", help="build hierarchical agent memory")
+    memory_subparsers = memory_parser.add_subparsers(dest="memory_command")
+    memory_build_parser = memory_subparsers.add_parser("build", help="build collection and library memory")
+    memory_build_parser.add_argument("--collection", help="limit to one collection path")
+    memory_build_parser.add_argument("--limit", type=int, help="maximum papers to process")
+    memory_build_parser.add_argument("--force", action="store_true", help="regenerate existing outputs")
+    memory_build_parser.add_argument("--dry-run", action="store_true", help="plan memory build without writes")
+    add_json_flag(memory_build_parser)
     extract_parser = subparsers.add_parser("extract", help="extract structured paper information")
     extract_subparsers = extract_parser.add_subparsers(dest="extract_command")
     summary_parser = extract_subparsers.add_parser("summary", help="extract AI article skeletons")
@@ -162,6 +171,7 @@ def main(argv: list[str] | None = None) -> int:
             collection=args.collection,
             inbox=args.inbox,
         )
+        mark_bundles_stale(Path(args.library), imported, reason="import")
         _emit({"ok": True, "imported": [str(path) for path in imported]}, args.json)
         return 0
     if args.command == "convert":
@@ -220,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
             batch_size=args.batch_size,
             jobs=jobs,
         )
+        mark_bundles_stale(Path(args.library), converted, reason="convert")
         _emit({"ok": True, "converted": [str(path) for path in converted]}, args.json)
         return 0
     if args.command == "list":
@@ -342,6 +353,13 @@ def main(argv: list[str] | None = None) -> int:
             target=args.target,
             dry_run=args.dry_run,
         )
+        if not args.dry_run:
+            changed_paths = [
+                Path(row["path"])
+                for row in payload["repaired"]
+                if row.get("metadata_changed") or row.get("markdown_changed")
+            ]
+            mark_bundles_stale(Path(args.library), changed_paths, reason="repair")
         if args.json:
             _emit(payload, True)
         else:
@@ -353,10 +371,61 @@ def main(argv: list[str] | None = None) -> int:
             for row in payload["failed"]:
                 print(f"failed: {row['path']} - {row['error']}")
         return 0 if payload["ok"] else 1
+    if args.command == "memory":
+        if args.memory_command != "build":
+            parser.error("memory currently requires a subcommand such as build")
+        from .ai.memory_build import build_memory_library
+
+        provider = None
+        if not args.dry_run:
+            from .ai.providers import (
+                OpenAICompatibleProvider,
+                ProviderConfigError,
+                load_provider_config,
+            )
+
+            try:
+                provider = OpenAICompatibleProvider(load_provider_config(Path(args.library)))
+            except ProviderConfigError as exc:
+                payload = {
+                    "ok": False,
+                    "error": str(exc),
+                    "planned": [],
+                    "written": [],
+                    "skipped": [],
+                    "failed": [],
+                    "warnings": [],
+                }
+                if args.json:
+                    _emit(payload, True)
+                else:
+                    print(str(exc))
+                return 1
+        payload = build_memory_library(
+            Path(args.library),
+            provider,
+            collection=args.collection,
+            limit=args.limit,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
+        if args.json:
+            _emit(payload, True)
+        else:
+            for row in payload["planned"]:
+                print(f"planned: {row['kind']} {row['path']}")
+            for row in payload["written"]:
+                print(f"written: {row['kind']} {row['path']}")
+            for row in payload["skipped"]:
+                print(f"skipped: {row['kind']} {row['path']} - {row['reason']}")
+            for row in payload["failed"]:
+                print(f"failed: {row['kind']} {row['path']} - {row['error']}")
+        return 0 if payload["ok"] else 1
     if args.command == "extract":
         if args.extract_command != "summary":
             parser.error("extract currently requires a subcommand such as summary")
         from .ai.extract_summary import extract_summary_library
+        from .ai.memory_build import refresh_memory_for_bundles
 
         provider = None
         if not args.dry_run:
@@ -388,6 +457,18 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             dry_run=args.dry_run,
         )
+        if not args.dry_run and provider is not None:
+            extracted_paths = [Path(row["path"]) for row in payload["extracted"]]
+            if extracted_paths:
+                payload["memory_refresh"] = refresh_memory_for_bundles(
+                    Path(args.library),
+                    provider,
+                    extracted_paths,
+                )
+                if not payload["memory_refresh"]["ok"]:
+                    payload.setdefault("warnings", []).append(
+                        "memory refresh failed after extract summary; summaries were still written"
+                    )
         if args.json:
             _emit(payload, True)
         else:
@@ -402,6 +483,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"skipped: {row['path']} - {row['reason']}")
             for row in payload["failed"]:
                 print(f"failed: {row['path']} - {row['error']}")
+            if payload.get("memory_refresh"):
+                refresh = payload["memory_refresh"]
+                print(
+                    f"memory-refresh: written={len(refresh['written'])} failed={len(refresh['failed'])}"
+                )
         return 0 if payload["ok"] else 1
     if args.command == "validate":
         if args.validate_command != "qed":
