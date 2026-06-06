@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -39,7 +40,18 @@ class MarkdownRepairResult:
     blocks_checked: int = 0
     blocks_changed: int = 0
     warnings: list[str] = field(default_factory=list)
+    warnings_by_reason: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
     repaired_markdown: str | None = field(default=None, repr=False)
+
+    def warning_summary(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "reason": reason,
+                "count": len(block_ids),
+                "block_ids": sorted(set(block_ids)),
+            }
+            for reason, block_ids in sorted(self.warnings_by_reason.items())
+        ]
 
 
 @dataclass
@@ -57,6 +69,7 @@ class BundleRepairResult:
             "metadata_changed": self.metadata.changed,
             "markdown_changed": self.markdown.changed,
             "warnings": self.warnings + self.metadata.warnings + self.markdown.warnings,
+            "markdown_warning_summary": self.markdown.warning_summary(),
         }
 
 
@@ -278,6 +291,17 @@ def _allows_empty_replacement(old_text: str, reason: str) -> bool:
     return bool(re.fullmatch(r"(\d+|page\s+\d+)", old_text.strip(), flags=re.I))
 
 
+def _record_warning(
+    result: MarkdownRepairResult,
+    *,
+    reason: str,
+    block: MarkdownBlock,
+    message: str,
+) -> None:
+    result.warnings.append(f"{reason} [{block.id}]: {message}")
+    result.warnings_by_reason[reason].append(block.id)
+
+
 def repair_markdown(
     bundle_dir: Path,
     provider: AIProvider,
@@ -296,16 +320,39 @@ def repair_markdown(
     result.blocks_checked = len(findings)
     for finding in findings:
         if finding.policy != "auto_repair":
-            result.warnings.append(
-                f"{finding.policy} suspicious block skipped: {finding.block.id} "
-                f"({', '.join(finding.reasons)})"
+            message = (
+                f"{finding.policy} suspicious block skipped: ({', '.join(finding.reasons)}) "
+                f"at {finding.block.id}"
+            )
+            for reason in finding.reasons:
+                _record_warning(
+                    result,
+                    reason=f"{finding.policy}:{reason}",
+                    block=finding.block,
+                    message=message,
+                )
+            _record_warning(
+                result,
+                reason=f"{finding.policy}:all",
+                block=finding.block,
+                message=message,
             )
     if not candidates:
         return result
     response = provider.complete_json(_markdown_messages(candidates), schema_name="markdown-repair")
     patches = response.get("block_patches") or []
     if not isinstance(patches, list):
-        result.warnings.append("AI Markdown response block_patches was not a list")
+        fallback_block = (
+            blocks[0]
+            if blocks
+            else MarkdownBlock(id="unknown", type="unknown", start_line=0, end_line=0, text="")
+        )
+        _record_warning(
+            result,
+            reason="provider:non_list_block_patches",
+            block=fallback_block,
+            message="AI Markdown response block_patches was not a list",
+        )
         return result
     by_id = {block.id: block for block in blocks}
     changed_ids: set[str] = set()
@@ -315,23 +362,53 @@ def repair_markdown(
         block_id = str(patch.get("block_id") or "")
         block = by_id.get(block_id)
         if block is None:
-            result.warnings.append(f"Unknown block id skipped: {block_id}")
+            fallback_block = (
+                blocks[0]
+                if blocks
+                else MarkdownBlock(id="unknown", type="unknown", start_line=0, end_line=0, text="")
+            )
+            _record_warning(
+                result,
+                reason="provider:unknown_block_id",
+                block=fallback_block,
+                message=f"Unknown block id skipped: {block_id}",
+            )
             continue
         old_text = str(patch.get("old_text") or "")
         new_text = str(patch.get("new_text") or "")
         confidence = str(patch.get("confidence") or "")
         reason = str(patch.get("reason") or "")
         if confidence not in ACCEPTED_CONFIDENCE:
-            result.warnings.append(f"Low-confidence Markdown patch skipped: {block_id}")
+            _record_warning(
+                result,
+                reason="provider:low_confidence",
+                block=block,
+                message=f"Low-confidence Markdown patch skipped: {block_id}",
+            )
             continue
         if old_text != block.text:
-            result.warnings.append(f"Patch old_text mismatch skipped: {block_id}")
+            _record_warning(
+                result,
+                reason="provider:old_text_mismatch",
+                block=block,
+                message=f"Patch old_text mismatch skipped: {block_id}",
+            )
             continue
         if new_text == "" and not _allows_empty_replacement(old_text, reason):
-            result.warnings.append(f"Empty Markdown patch skipped: {block_id}")
+            _record_warning(
+                result,
+                reason="provider:empty_patch",
+                block=block,
+                message=f"Empty Markdown patch skipped: {block_id}",
+            )
             continue
         if block.type in {"formula", "table", "reference"} and new_text != old_text:
-            result.warnings.append(f"Protected Markdown block skipped: {block_id}")
+            _record_warning(
+                result,
+                reason="provider:protected_block",
+                block=block,
+                message=f"Protected Markdown block skipped: {block_id}",
+            )
             continue
         changed_ids.add(block_id)
         index = blocks.index(block)
@@ -385,6 +462,7 @@ def _write_repair_json(
             "blocks_checked": markdown.blocks_checked,
             "blocks_changed": markdown.blocks_changed,
             "warnings": markdown.warnings,
+            "warning_summary": markdown.warning_summary(),
         },
     }
     (bundle_dir / "repair.json").write_text(
@@ -397,22 +475,90 @@ def _expanded_targets(target: str) -> list[str]:
     return ["metadata", "markdown"] if target == "all" else [target]
 
 
-def repair_library(
+def _normalize_collection_reference(value: str) -> str:
+    normalized = value.replace("\\", "/").strip()
+    if normalized.startswith("collections/"):
+        normalized = normalized[len("collections/") :]
+    return normalized.strip("/")
+
+
+def _matches_paper(
     library_dir: Path,
-    provider: AIProvider,
+    bundle_dir: Path,
+    record: PaperRecord,
+    paper: str | None,
+) -> bool:
+    if not paper:
+        return True
+    query = paper.casefold()
+    if record.id.casefold().startswith(query):
+        return True
+    if query in record.id.casefold():
+        return True
+    if query in record.name.casefold():
+        return True
+    if query in bundle_dir.name.casefold():
+        return True
+    try:
+        relative_path = str(bundle_dir.relative_to(library_dir)).casefold()
+    except ValueError:
+        relative_path = str(bundle_dir).casefold()
+    return query in relative_path
+
+
+def _matches_collection(record: PaperRecord, collection: str | None) -> bool:
+    if not collection:
+        return True
+    query = _normalize_collection_reference(collection)
+    if query == "inbox":
+        return record.collection is None
+    record_collection = _normalize_collection_reference(str(record.collection or ""))
+    return record_collection == query
+
+
+def _candidate_bundles(
+    library_dir: Path,
     *,
-    target: str = "all",
-    dry_run: bool = False,
-) -> dict[str, Any]:
-    targets = _expanded_targets(target)
-    repaired: list[dict[str, Any]] = []
-    failed: list[dict[str, Any]] = []
+    paper: str | None = None,
+    collection: str | None = None,
+    limit: int | None = None,
+) -> list[tuple[Path, PaperRecord]]:
+    candidates: list[tuple[Path, PaperRecord]] = []
     for bundle_dir in find_paper_dirs(library_dir):
         if not (bundle_dir / "paper.md").exists():
             continue
         record = read_paper(bundle_dir)
         if record.status.get("conversion") != "done":
             continue
+        if not _matches_paper(library_dir, bundle_dir, record, paper):
+            continue
+        if not _matches_collection(record, collection):
+            continue
+        candidates.append((bundle_dir, record))
+        if limit is not None and len(candidates) >= limit:
+            break
+    return candidates
+
+
+def repair_library(
+    library_dir: Path,
+    provider: AIProvider,
+    *,
+    target: str = "all",
+    dry_run: bool = False,
+    paper: str | None = None,
+    collection: str | None = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    targets = _expanded_targets(target)
+    repaired: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for bundle_dir, record in _candidate_bundles(
+        library_dir,
+        paper=paper,
+        collection=collection,
+        limit=limit,
+    ):
         current_dir = bundle_dir
         bundle_result = BundleRepairResult(path=current_dir, targets=targets)
         timestamp = utc_now_iso()
@@ -455,4 +601,13 @@ def repair_library(
             failed.append({"path": str(current_dir), "error": str(exc)})
     if not dry_run:
         rebuild_papers_index(library_dir)
-    return {"ok": not failed, "repaired": repaired, "failed": failed}
+    return {
+        "ok": not failed,
+        "target": target,
+        "paper": paper,
+        "collection": collection,
+        "limit": limit,
+        "dry_run": dry_run,
+        "repaired": repaired,
+        "failed": failed,
+    }

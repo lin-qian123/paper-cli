@@ -84,6 +84,9 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("metadata", "markdown", "all"),
         default="all",
     )
+    repair_parser.add_argument("--paper", help="limit repair scope by paper id/name/title/path")
+    repair_parser.add_argument("--collection", help="limit repair scope by collection path")
+    repair_parser.add_argument("--limit", type=int, help="maximum number of bundles to repair")
     repair_parser.add_argument("--dry-run", action="store_true", help="plan repairs without writing files")
     add_json_flag(repair_parser)
     memory_parser = subparsers.add_parser("memory", help="build hierarchical agent memory")
@@ -352,6 +355,9 @@ def main(argv: list[str] | None = None) -> int:
             provider,
             target=args.target,
             dry_run=args.dry_run,
+            paper=args.paper,
+            collection=args.collection,
+            limit=args.limit,
         )
         if not args.dry_run:
             changed_paths = [

@@ -181,10 +181,11 @@ export PAPER_AI_BASE_URL="https://api.openai.com/v1"
 export PAPER_AI_API_KEY="..."
 export PAPER_AI_MODEL="gpt-5.4-mini"
 python3 -m paper_cli --library /path/to/paper-library repair --target metadata --dry-run --json
+python3 -m paper_cli --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
 python3 -m paper_cli --library /path/to/paper-library repair --json
 ```
 
-`paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and low-risk suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`. Higher-risk scientific content is preserved and recorded as `review_only` warnings for later inspection.
+`paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and low-risk suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`. Use `--paper`, `--collection`, and `--limit` to scope repairs to specific converted bundles. Higher-risk scientific content is preserved and recorded as `review_only` warnings for later inspection; `repair.json` now includes aggregated `markdown.warning_summary` counts by reason together with affected block IDs.
 
 AI extract summary uses the same provider configuration and writes extraction outputs without modifying the paper source files:
 
@@ -293,7 +294,7 @@ Later phases:
 
 ## Development Notes
 
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md` for the AI memory build design, `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md` for the MinerU conversion backend plan, and `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record.
+See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md` for the AI memory build design, `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md` for the MinerU conversion backend plan, `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record, and `docs/contracts/extract-summary-output.md` for the summary artifact contract.
 
 Contract docs:
 

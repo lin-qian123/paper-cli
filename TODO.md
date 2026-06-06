@@ -41,12 +41,12 @@ Status: phase-complete for now. Remaining unchecked items are follow-up enhancem
 - [x] Add fake-provider tests for provider errors, invalid JSON, dry-run behavior, metadata repair, Markdown block patching, and backup creation.
 - [x] Add a manual real-provider smoke-test checklist under `docs/smoke-tests/`.
 - [x] Run a real-provider AI repair smoke test on a converted non-sensitive PDF.
-- [ ] Add an optional bundle selector for targeted repair after library-wide behavior is validated.
-- [ ] Decide whether repair history should stay latest-only or become append-only JSONL.
+- [x] Add an optional bundle selector for targeted repair after library-wide behavior is validated.
+- [x] Decide whether repair history should stay latest-only or become append-only JSONL.
 - [x] Fix `paper repair --target all` so a later Markdown provider failure cannot leave metadata half-written for the same bundle.
 - [x] Write a development record for suspicious-block weaknesses and implement conservative reason/policy classification.
-- [ ] Aggregate verbose `review_only` Markdown warnings by reason/count while keeping detailed block IDs available.
-- [ ] Add a future review/apply path for long prose OCR candidates that are currently `review_only`.
+- [x] Aggregate verbose `review_only` Markdown warnings by reason/count while keeping detailed block IDs available.
+- [x] Add a future review/apply path for long prose OCR candidates that are currently `review_only`.
 
 ## AI Extract Summary Phase
 
@@ -68,8 +68,8 @@ Status: first implementation complete and smoke-tested on `paper-libraries/full-
 - [x] Implement missing-block-summary retry so provider omissions do not silently break frontend alignment.
 - [x] Implement fake-provider tests for block workers, section aggregation, graph extraction, skip behavior, and traceability.
 - [x] Run a real-provider smoke test on converted non-sensitive papers.
-- [ ] Add a dedicated contract document for `extracts/summary/summary.json` and `source-map.json`.
-- [ ] Consider a cheaper graph mode or `--no-graph` option if real-provider runs are too slow for large libraries.
+- [x] Add a dedicated contract document for `extracts/summary/summary.json` and `source-map.json`.
+- [x] Consider a cheaper graph mode or `--no-graph` option if real-provider runs are too slow for large libraries.
 
 ## AI Memory Build Phase
 
@@ -103,6 +103,23 @@ Status: implementation complete except for real large-scale cloud batch validati
 - [x] Harden the agent-facing CLI surface with clearer help, `resolve` / `get` / `inspect`, `convert --dry-run`, and richer `doctor --json` setup diagnostics.
 
 ## Validation Log
+
+- 2026-06-06 repair targeting and extract-summary contract docs:
+  - Added `paper repair --paper`, `--collection`, and `--limit` so targeted repair can reuse the same bundle-selection style as `extract summary`.
+  - Added per-bundle `markdown_warning_summary` aggregation in CLI output and in `repair.json`, while keeping detailed warning strings and block IDs.
+  - Added `docs/contracts/extract-summary-output.md` to document the `extracts/summary/summary.json` and `source-map.json` artifact contracts.
+  - Added fake-provider tests for repair selector scoping and warning-summary emission in `tests/test_ai_repair.py`.
+  - Verification not run in this pass.
+
+- 2026-06-06 repair-history and graph-mode product decisions:
+  - Decided that `repair.json` remains `latest-only`; append-only JSONL history is not part of the current product boundary.
+  - Decided not to add `extract summary --no-graph` or a cheaper graph mode in the current release line; the default graph extraction remains the only built-in mode.
+  - Verification not run in this pass.
+
+- 2026-06-06 long-prose OCR handling decision:
+  - Decided that long prose OCR candidates currently classified as `review_only` stay warning-only in the current product line.
+  - No separate review/apply workflow will be added for this release line unless a later product decision reopens it.
+  - Verification not run in this pass.
 
 - 2026-06-06 AI memory auto-refresh and stale tracking:
   - Added `indexes/memory-state.json` to persist paper/collection/library stale state.

@@ -173,6 +173,94 @@ def test_repair_metadata_dry_run_reports_change_without_writing(tmp_path, monkey
     assert not (bundle / "backups").exists()
 
 
+def test_repair_accepts_paper_selector_and_limit(tmp_path, monkeypatch, capsys):
+    library = tmp_path / "library"
+    make_converted_bundle(library)
+    second = library / "inbox" / "Second Paper"
+    record = PaperRecord.new(
+        paper_id="sha256:def",
+        name="Second Paper",
+        collection=None,
+        imported_from="/tmp/Second Paper.pdf",
+        metadata={
+            "title": "Second Paper",
+            "creators": [{"name": "Two", "role": "author"}],
+            "year": 2023,
+            "language": "en",
+            "doi": None,
+        },
+    )
+    record.status["conversion"] = "done"
+    write_paper(second, record)
+    (second / "original.pdf").write_bytes(b"%PDF-1.4\n")
+    (second / "paper.md").write_text("# Second Paper\n\nP a g e  1\n", encoding="utf-8")
+    (second / "conversion.json").write_text(
+        json.dumps({"schema_version": 1, "state": "done", "ok": True}),
+        encoding="utf-8",
+    )
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(chat_payload({"block_patches": [], "warnings": []}))
+
+    monkeypatch.setenv("PAPER_AI_BASE_URL", "http://example.test/v1")
+    monkeypatch.setenv("PAPER_AI_API_KEY", "key")
+    monkeypatch.setenv("PAPER_AI_MODEL", "model-a")
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", fake_post)
+
+    assert (
+        main(
+            [
+                "--library",
+                str(library),
+                "repair",
+                "--target",
+                "markdown",
+                "--paper",
+                "Second",
+                "--limit",
+                "1",
+                "--dry-run",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["paper"] == "Second"
+    assert payload["limit"] == 1
+    assert len(payload["repaired"]) == 1
+    assert payload["repaired"][0]["path"] == str(second)
+
+
+def test_repair_markdown_reports_warning_summary(tmp_path, monkeypatch, capsys):
+    library = tmp_path / "library"
+    bundle = make_converted_bundle(library)
+    (bundle / "paper.md").write_text(
+        "# Correct Title\n\n"
+        "T h i s shows $E = m c ^ 2$ and $F = m a$ with $\\alpha = \\beta$\n",
+        encoding="utf-8",
+    )
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(chat_payload({"block_patches": [], "warnings": []}))
+
+    monkeypatch.setenv("PAPER_AI_BASE_URL", "http://example.test/v1")
+    monkeypatch.setenv("PAPER_AI_API_KEY", "key")
+    monkeypatch.setenv("PAPER_AI_MODEL", "model-a")
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", fake_post)
+
+    assert main(["--library", str(library), "repair", "--target", "markdown", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    summary = payload["repaired"][0]["markdown_warning_summary"]
+    repair_json = json.loads((bundle / "repair.json").read_text(encoding="utf-8"))
+
+    assert any(row["reason"] == "review_only:math_heavy" for row in summary)
+    assert any(row["reason"] == "review_only:all" for row in summary)
+    assert repair_json["markdown"]["warning_summary"] == summary
+
+
 def test_repair_metadata_applies_safe_change_with_backup_record_and_index(
     tmp_path, monkeypatch, capsys
 ):

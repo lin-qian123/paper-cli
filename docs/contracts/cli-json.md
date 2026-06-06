@@ -379,6 +379,9 @@ Success output:
 {
   "ok": true,
   "target": "all",
+  "paper": null,
+  "collection": null,
+  "limit": null,
   "dry_run": false,
   "repaired": [],
   "failed": []
@@ -386,6 +389,14 @@ Success output:
 ```
 
 `repaired` and `failed` contain bundle-local result objects. Applied repair writes are recorded in each bundle's `repair.json`.
+
+`repair` supports optional scope selectors:
+
+- `--paper` accepts an id/name/title/path fragment and applies to matching converted bundles.
+- `--collection` limits to one collection path (or `inbox`).
+- `--limit` caps the number of processed bundles.
+
+`markdown_warning_summary` is emitted per repaired bundle in CLI output and in `repair.json` under `markdown.warning_summary`. It aggregates warning counts by reason and keeps affected `block_ids`.
 
 ## `extract summary`
 
@@ -402,7 +413,7 @@ Dry-run output:
 }
 ```
 
-Write output uses the same top-level shape, with generated bundle results under `extracted`. The command writes `extracts/summary/summary.json`, `summary.md`, and `source-map.json`; those file contracts are intentionally separate from this CLI envelope contract.
+Write output uses the same top-level shape, with generated bundle results under `extracted`. The command writes `extracts/summary/summary.json`, `summary.md`, and `source-map.json`; those file contracts are documented in [extract-summary-output.md](/Users/yuxiangzhang/Documents/program/paper-cli/docs/contracts/extract-summary-output.md).
 
 ## `validate qed`
 
