@@ -54,3 +54,63 @@ def test_mineru_metadata_rejects_affiliation_and_email_as_authors():
     )
 
     assert "creators" not in metadata
+
+
+def test_title_page_collects_multi_line_author_block():
+    metadata, sources, confidence = extract_mineru_metadata(
+        "# Paper Title\n\nAlice Zhang,\nBob Li,\nCarol Wang\n\nInstitute of Physics\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == [
+        "Alice Zhang",
+        "Bob Li",
+        "Carol Wang",
+    ]
+    assert sources["creators"] == "mineru-title-page"
+    assert confidence["creators"] == "medium"
+
+
+def test_title_page_detects_single_western_author_without_separator():
+    metadata, sources, _ = extract_mineru_metadata(
+        "# Paper Title\n\nAlice Zhang\nInstitute of Physics\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang"]
+    assert sources["creators"] == "mineru-title-page"
+
+
+def test_title_page_detects_single_chinese_author_without_separator():
+    metadata, sources, _ = extract_mineru_metadata(
+        "# 论文标题\n\n张伟\n北京大学\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == ["张伟"]
+    assert sources["creators"] == "mineru-title-page"
+
+
+def test_title_page_skips_section_heading_like_single_author():
+    metadata, _, _ = extract_mineru_metadata(
+        "# Paper Title\n\nIntroduction\n\nThe rest of the paper...\n"
+    )
+
+    assert "creators" not in metadata
+
+
+def test_title_page_stops_collecting_at_affiliation():
+    metadata, sources, _ = extract_mineru_metadata(
+        "# Paper Title\n\nAlice Zhang, Bob Li\nDepartment of Physics\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang", "Bob Li"]
+    assert sources["creators"] == "mineru-title-page"
+
+
+def test_title_page_stops_collecting_at_long_line():
+    metadata, _, _ = extract_mineru_metadata(
+        "# Paper Title\n\n"
+        "Alice Zhang\n"
+        "This paper presents a novel approach to solving the problem of long-range interactions "
+        "in many-body quantum systems using tensor network methods applied to lattice models.\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang"]

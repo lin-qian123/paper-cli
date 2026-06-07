@@ -6,6 +6,35 @@ from typing import Any
 from paper_cli.metadata import detect_language, normalize_creators
 from paper_cli.naming import remove_problematic_unicode
 
+_NON_AUTHOR_MARKERS = [
+    "@",
+    "abstract",
+    "institute",
+    "university",
+    "laboratory",
+    "department",
+    "copyright",
+    "doi",
+    "arxiv",
+    "received",
+    "accepted",
+    "published",
+    "http",
+    "www.",
+    "correspond",
+]
+
+_CN_AFFILIATION_MARKERS = [
+    "大学",
+    "学院",
+    "研究所",
+    "研究院",
+    "实验室",
+    "重点实验室",
+    "中心",
+    "系",
+    "中国科学院",
+]
 DOI_PATTERN = re.compile(r"\b(10\.\d{4,9}/[^\s<>'\"{}|\\^`\]]+)", re.IGNORECASE)
 ARXIV_PATTERN = re.compile(r"\barXiv\s*:\s*([0-9]{4}\.[0-9]{4,5}(?:v\d+)?)", re.IGNORECASE)
 JOURNAL_LABELS = {
@@ -98,6 +127,36 @@ def _explicit_year(lines: list[str]) -> int | None:
 
 def _title_page_authors_line(lines: list[str], title: str | None) -> str | None:
     passed_title = title is None
+    fragments: list[str] = []
+
+    for line in lines[:60]:
+        if line.startswith("# "):
+            if passed_title and fragments:
+                break
+            passed_title = True
+            continue
+        if not passed_title:
+            continue
+        stripped = line.strip()
+        if not stripped:
+            if fragments:
+                break
+            continue
+        if _is_non_author_line(stripped):
+            if fragments:
+                break
+            continue
+        if len(stripped) <= 120:
+            fragments.append(stripped)
+        elif fragments:
+            break
+
+    if fragments:
+        joined = " ".join(fragments)
+        if _looks_like_author_line(joined):
+            return joined
+
+    passed_title = title is None
     for line in lines[:30]:
         if line.startswith("# "):
             passed_title = True
@@ -110,31 +169,34 @@ def _title_page_authors_line(lines: list[str], title: str | None) -> str | None:
     return None
 
 
+def _is_non_author_line(value: str) -> bool:
+    lowered = value.lower()
+    if any(marker in lowered for marker in _NON_AUTHOR_MARKERS):
+        return True
+    return any(marker in value for marker in _CN_AFFILIATION_MARKERS)
+
+
 def _looks_like_author_line(value: str) -> bool:
     lowered = value.lower()
-    if any(
-        marker in lowered
-        for marker in [
-            "@",
-            "abstract",
-            "institute",
-            "university",
-            "laboratory",
-            "department",
-            "copyright",
-            "doi",
-            "arxiv",
-            "received",
-            "accepted",
-        ]
-    ):
+    if _is_non_author_line(value):
         return False
-    if len(value) > 240 or len(value) < 5:
+    if len(value) > 240:
+        return False
+    has_cjk = bool(re.search(r"[一-鿿]", value))
+    min_len = 2 if has_cjk else 5
+    if len(value) < min_len:
         return False
     if sum(ch.isdigit() for ch in value) > 2:
         return False
-    if "," not in value and " and " not in lowered and ";" not in value:
-        return False
+    has_separator = "," in value or " and " in lowered or ";" in value
+    if not has_separator:
+        if " " not in value and not has_cjk:
+            return False
+        letters = [ch for ch in value if ch.isalpha()]
+        if letters and all(ch.isupper() for ch in letters):
+            return False
+        if len(value.split()) > 4:
+            return False
     creators = normalize_creators(value)
     return bool(creators) and len(creators) <= 20
 
