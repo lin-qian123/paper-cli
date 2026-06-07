@@ -15,7 +15,7 @@ This spec lives in the `paper-cli` repository because the plugin is tightly coup
 Recommended local layout:
 
 ```text
-/Users/yuxiangzhang/Documents/program/
+/path/to/workspace/
   paper-cli/
   paper-research-plugin/
 ```

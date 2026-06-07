@@ -93,7 +93,7 @@ python3 -m paper_cli --library /path/to/paper-library convert --pending --conver
 
 ```yaml
 mineru:
-  executable: /Volumes/PHILIPS/programs/mineru/.venv/bin/mineru
+  executable: /path/to/mineru/.venv/bin/mineru
   local_backend: pipeline
   local_jobs: auto
 ```
@@ -112,8 +112,8 @@ QED 语料的重复验证可以使用本地 validation helper。它会确定性�
 
 ```bash
 python3 -m paper_cli validate qed \
-  --source /Volumes/PHILIPS/programs/paper-cache/QED \
-  --library-root /Volumes/PHILIPS/programs/paper-cache \
+  --source /path/to/QED \
+  --library-root /path/to/library-root \
   --count 30 \
   --seed 20260525 \
   --converter mineru-local \

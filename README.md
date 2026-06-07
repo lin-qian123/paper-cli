@@ -23,7 +23,7 @@ The built-in AI memory build phase is now usable as a higher-level memory layer.
 The planned companion project is a separate sibling repository:
 
 ```text
-/Users/yuxiangzhang/Documents/program/
+/path/to/workspace/
   paper-cli/
   paper-research-plugin/
 ```
@@ -122,7 +122,7 @@ python3 -m paper_cli --library /path/to/paper-library convert --pending --conver
 
 ```yaml
 mineru:
-  executable: /Volumes/PHILIPS/programs/mineru/.venv/bin/mineru
+  executable: /path/to/mineru/.venv/bin/mineru
   local_backend: pipeline
   local_jobs: auto
 ```
@@ -161,8 +161,8 @@ For repeatable QED corpus validation, use the local validation helper. It sample
 
 ```bash
 python3 -m paper_cli validate qed \
-  --source /Volumes/PHILIPS/programs/paper-cache/QED \
-  --library-root /Volumes/PHILIPS/programs/paper-cache \
+  --source /path/to/QED \
+  --library-root /path/to/library-root \
   --count 30 \
   --seed 20260525 \
   --converter mineru-local \

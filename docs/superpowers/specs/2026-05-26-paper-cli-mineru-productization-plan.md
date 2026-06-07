@@ -104,7 +104,7 @@ MinerU conversion already sees strong local evidence: the source PDF filename, P
   - Test a library `paper-cli.yaml` override can set:
     ```yaml
     mineru:
-      executable: /Volumes/PHILIPS/programs/mineru/.venv/bin/mineru
+      executable: /path/to/mineru/.venv/bin/mineru
       local_backend: pipeline
       local_jobs: 1
     ```
@@ -396,7 +396,7 @@ MinerU conversion already sees strong local evidence: the source PDF filename, P
     - artifact counts
 
 - [ ] **Step 5: Execute real validation when network is stable**
-  - Use a fresh library under `/Volumes/PHILIPS/programs/paper-cache/`.
+  - Use a fresh library under an external validation root.
   - Do not commit PDFs or converted artifacts.
   - Record results in `TODO.md` and `docs/zh/TODO.zh.md`.
 
@@ -420,7 +420,7 @@ MinerU conversion already sees strong local evidence: the source PDF filename, P
 - [ ] **Step 1: Decide command shape**
   - Preferred internal command:
     ```bash
-    paper validate qed --source /Volumes/PHILIPS/programs/paper-cache/QED --library-root /Volumes/PHILIPS/programs/paper-cache --count 30 --seed 20260525 --converter mineru-local --json
+    paper validate qed --source /path/to/QED --library-root /path/to/library-root --count 30 --seed 20260525 --converter mineru-local --json
     ```
   - If this feels too product-specific for public CLI, implement as a developer script under `scripts/qed_validation.py` instead.
 
@@ -453,7 +453,7 @@ MinerU conversion already sees strong local evidence: the source PDF filename, P
 
 - [ ] **Step 6: Run local dry-run**
   ```bash
-  uv run python -m paper_cli validate qed --source /Volumes/PHILIPS/programs/paper-cache/QED --library-root /Volumes/PHILIPS/programs/paper-cache --count 3 --seed 20260525 --no-convert --json
+  uv run python -m paper_cli validate qed --source /path/to/QED --library-root /path/to/library-root --count 3 --seed 20260525 --no-convert --json
   ```
   Expected: creates sample list, imports 3 papers, doctor passes, no conversion is run.
 
@@ -473,8 +473,8 @@ MinerU conversion already sees strong local evidence: the source PDF filename, P
 
 - [ ] Run local MinerU environment doctor:
   ```bash
-  PATH="/Volumes/PHILIPS/programs/mineru/.venv/bin:$PATH" \
-  uv run python -m paper_cli --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525 doctor --strict --json
+  PATH="/path/to/mineru/.venv/bin:$PATH" \
+  uv run python -m paper_cli --library /path/to/paper-cli-qed-30-retest-20260525 doctor --strict --json
   ```
   Expected: `ok=true`.
 
@@ -482,10 +482,10 @@ MinerU conversion already sees strong local evidence: the source PDF filename, P
 
 - [ ] Run QED scripted full local validation with 30 papers when time allows:
   ```bash
-  PATH="/Volumes/PHILIPS/programs/mineru/.venv/bin:$PATH" \
+  PATH="/path/to/mineru/.venv/bin:$PATH" \
   uv run python -m paper_cli validate qed \
-    --source /Volumes/PHILIPS/programs/paper-cache/QED \
-    --library-root /Volumes/PHILIPS/programs/paper-cache \
+    --source /path/to/QED \
+    --library-root /path/to/library-root \
     --count 30 \
     --seed 20260525 \
     --converter mineru-local \

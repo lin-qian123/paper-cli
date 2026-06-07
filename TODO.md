@@ -165,24 +165,24 @@ Status: implementation complete except for real large-scale cloud batch validati
   - Added conservative local jobs auto-tuning; `auto` resolves to one local MinerU process unless CLI/config explicitly overrides it.
   - Added `paper validate qed` to script deterministic QED sampling, symlink input creation, import, optional conversion, doctor checks, artifact counts, and Markdown report generation.
   - `make verify` passed with 114 tests and ruff clean.
-  - Dry QED validation under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-dry-20260526` passed with `--no-convert`, 3 sampled/imported papers, and report `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-dry-20260526-test-report.md`.
-  - Full local MinerU validation under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-20260526` used MinerU 3.1.15 from `/Volumes/PHILIPS/programs/mineru/.venv/bin`, `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`.
+  - Dry QED validation under an external test root passed with `--no-convert`, 3 sampled/imported papers, and a generated Markdown report.
+  - Full local MinerU validation under an external test root used MinerU 3.1.15 from a local virtual environment, with `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`.
   - Final validation result: `sampled=30`, `imported=30`, `converted=30`, `failed=0`, `pending=0`, `incomplete_metadata=0`, `renamed=20`, strict doctor issues `[]`.
   - Artifact counts were 30 bundles, 30 `paper.md`, 30 `images/`, 30 `raw/mineru`, and 30 `conversion.json`.
   - Naming anomaly scan for separators, replacement characters, private-use glyphs, `SCIENTIFIC REPORTS`, and repeated spaces returned no matches.
-  - Full validation report: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-productization-20260526-test-report.md`.
+  - Full validation report was written under the same external test root.
 
-- 2026-05-25: Deleted the previous `/Volumes/PHILIPS/programs/paper-cache/paper-cli-*` test directories and reran a fresh QED random-30 validation under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525`.
-  - Sample source list: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-list.txt`; symlink input folder: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-sample-input`.
+- 2026-05-25: Deleted the previous external `paper-cli-*` test directories and reran a fresh QED random-30 validation under a new external test root.
+  - Sample source list and symlink input folder were regenerated under that external test root.
   - `make verify` passed after adding private-use Unicode cleanup for imported/converted metadata and bundle names: 91 tests passed and ruff reported no issues.
   - `paper init`, `paper import`, duplicate import, `paper list --json`, pre-conversion `paper status --json`, and `paper doctor --json` passed.
-  - Local MinerU conversion used `/Volumes/PHILIPS/programs/mineru/.venv/bin` on `PATH` with `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`.
+  - Local MinerU conversion used a local MinerU virtual environment on `PATH` with `--converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1`.
   - Final 30-paper status: `total=30`, `converted=30`, `failed=0`, `pending=0`, `incomplete_metadata=0`, `renamed=9`.
   - `paper doctor --strict --json` returned `ok=true`; counts were 30 `paper.md`, 30 `images/`, 30 `raw/mineru`, and 30 `conversion.json`.
   - Naming anomaly scan for separators, replacement characters, private-use glyphs, `SCIENTIFIC REPORTS`, and repeated spaces returned no matches after the cleanup fix.
   - AI tests passed: `tests/test_ai_repair.py` and `tests/test_ai_extract_summary.py` reported 23 passed.
   - `extract summary --dry-run --limit 30 --json` planned all 30 converted papers successfully.
-  - Real-provider smoke library: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-retest-20260525-ai-smoke`.
+  - Real-provider smoke library was created under the same external test root.
   - Real-provider `repair --dry-run --json` passed on the smoke library; real-provider `repair --json` write path also passed and produced `repair.json` plus a backup.
   - Real-provider `extract summary --limit 1 --workers 4 --paper-workers 1 --max-requests 8 --json` passed on the smoke library with 25 summarized blocks, 3 sections, 12 graph nodes, and 11 graph edges.
   - Smoke-library `paper doctor --strict --json` returned `ok=true` after repair and summary output generation.
@@ -216,7 +216,7 @@ Status: implementation complete except for real large-scale cloud batch validati
   - Applied runs create bundle-local backups, write latest-only `repair.json`, and rebuild `indexes/papers.jsonl`.
   - Added fake-provider tests for config, request payloads, invalid JSON, missing config, dry-run behavior, metadata protection, Markdown patching, mismatch rejection, backup creation, and index rebuild.
 - 2026-05-21 dual-modality paper full smoke test:
-  - Copied all 12 PDFs from `/Users/yuxiangzhang/Documents/research/paper/双模照相` into ignored test input `paper-libraries/full-smoke-input/双模照相`.
+  - Copied all 12 PDFs from a local dual-modality source folder into ignored test input `paper-libraries/full-smoke-input/双模照相`.
   - Imported the copied folder into `paper-libraries/full-smoke-library-clean` under collection `双模照相`; duplicate PDF hashes collapsed to 7 unique paper bundles.
   - Real MinerU conversion completed for all 7 bundles: `status` reported `converted=7`, `failed=0`, `pending=0`; `doctor` reported no issues.
   - Verified each converted bundle contains `original.pdf`, `paper.md`, `images/`, `raw/mineru/`, `conversion.json`, and `notes/README.md`; `jobs.jsonl` had 14 start/finish events and `papers.jsonl` had 7 rows.
@@ -275,11 +275,11 @@ Status: implementation complete except for real large-scale cloud batch validati
   - Kept retry wait as an internal program constant rather than a public CLI parameter to avoid option clutter.
   - Tests pass `retry_wait=0` through the internal function for retry cases to keep the suite fast while preserving the production default.
 - 2026-05-23 QED random-30 full-test pass:
-  - Drew 30 deterministic-random PDFs from `/Volumes/PHILIPS/programs/paper-cache/QED` and created the test library at `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-fulltest-20260523`.
+  - Drew 30 deterministic-random PDFs from a local QED corpus and created the test library under an external test root.
   - `make verify` passed with 66 tests and ruff clean; `paper init`, `import`, duplicate import skip, `list`, `status`, and `doctor` command paths passed.
   - Real MinerU conversion reached 4 converted bundles and 3 recorded failed bundles, then one remote task stayed running for more than 10 minutes and blocked the remaining serial batch; the run was stopped to continue the rest of the audit.
   - Verified AI command surfaces with a local OpenAI-compatible fake provider because the environment had `MINERU_API_KEY` but no `PAPER_AI_*` provider secrets: `repair` missing-config failure, `repair --dry-run`, `repair --target all`, `extract summary --dry-run`, default skip, `--paper`, and `--force` all behaved as expected on converted bundles.
-  - Generated `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-fulltest-20260523-test-report.md` with artifact counts, MinerU error text, dangling job evidence, naming/content flags, and summary-output counts.
+  - Generated a Markdown report under that external test root with artifact counts, MinerU error text, dangling job evidence, naming/content flags, and summary-output counts.
   - Issues found: MinerU conversion needs a per-file maximum wait, upload/download retry/backoff, and better interruption/job-history cleanup; `doctor` should optionally detect dangling conversion jobs or enforce strict batch success; MinerU-derived renames need guards against all-caps OCR titles, trailing path characters, and malformed spacing.
 - 2026-05-23 QED random-30 hardening follow-up:
   - Added MinerU network retry/backoff for submit, upload, polling, and ZIP download calls; upload retries rewind the PDF stream before each attempt.
@@ -294,16 +294,16 @@ Status: implementation complete except for real large-scale cloud batch validati
   - Added `mineru-api-batch` with 50-file upload-link request cap, stable `data_id`, bounded upload/download concurrency, polling, ZIP normalization, and resume from existing running `batch_id`.
   - Added `mineru-local` for installed `mineru` CLI conversion, including `-b` backend selection, local output normalization into `paper.md`, `images/`, and `raw/mineru/`, plus `--jobs` batch concurrency.
   - Extended strict doctor checks for stale running conversion files and missing `mineru-api-batch` `batch_id` / `data_id` mappings.
-  - Real QED random-30 validation used `/Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-backends-qed-30-20260523-rerun` with `--converter mineru-api-batch --batch-size 2 --jobs 1`.
+  - Real QED random-30 validation used an external rerun library with `--converter mineru-api-batch --batch-size 2 --jobs 1`.
   - The conservative real run converted 6 papers successfully before MinerU OSS upload through the local proxy stalled again; interrupting the run wrote 2 `interrupted` conversion records and marked those bundles failed for retry.
   - The first real batch attempt exposed that started job events were being written for future chunks too early and that upload timeout was not bounded by `MINERU_MAX_WAIT_SECONDS`; both issues now have regression tests and fixes.
   - Local `mineru` CLI validation could not run on this machine because `mineru` is not installed on `PATH`; the backend is covered by subprocess-based tests.
   - Final local verification passed: `make verify` with 89 tests and ruff clean.
 - 2026-05-24 local MinerU QED random-30 validation:
-  - Installed the cloned MinerU repository at `/Volumes/PHILIPS/programs/mineru` into `/Volumes/PHILIPS/programs/mineru/.venv` with `uv pip install -e ".[all]"`.
+  - Installed the cloned MinerU repository into a local virtual environment with `uv pip install -e ".[all]"`.
   - Added missing `socksio` to the MinerU venv because the local environment uses a SOCKS proxy and MinerU/httpx failed without it.
-  - Ran `paper convert --pending --converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1` with `PATH=/Volumes/PHILIPS/programs/mineru/.venv/bin:$PATH` on 30 QED sample papers.
-  - Final library: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-qed-30-20260524`.
+  - Ran `paper convert --pending --converter mineru-local --local-backend pipeline --batch-size 1 --jobs 1` with the local MinerU venv on `PATH` for 30 QED sample papers.
+  - Final library was written under an external test root.
   - Final status: `total=30`, `converted=30`, `failed=0`, `pending=0`, `incomplete_metadata=0`, `renamed=13`.
   - `paper doctor --strict --json` returned `ok=true`.
   - Verified 30 `paper.md`, 30 `images/`, 30 `raw/mineru/`, and 30 `conversion.json` outputs.
@@ -311,9 +311,9 @@ Status: implementation complete except for real large-scale cloud batch validati
 - 2026-05-24 AI provider smoke on local MinerU output:
   - Loaded provider configuration from the project `.env` without printing secret values.
   - `tests/test_ai_repair.py` and `tests/test_ai_extract_summary.py` passed with 23 tests.
-  - `extract summary --dry-run --limit 30` on `/Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-qed-30-20260524` planned all 30 converted papers successfully.
+  - `extract summary --dry-run --limit 30` on that local-MinerU validation library planned all 30 converted papers successfully.
   - A full-library `repair --dry-run` against the 30-paper library was stopped after the provider request chain hung through the local proxy for several minutes.
-  - Created one-paper smoke library `/Volumes/PHILIPS/programs/paper-cache/paper-cli-ai-repair-smoke-20260524` from the local MinerU output.
+  - Created a one-paper smoke library from the local MinerU output.
   - Real provider `repair --dry-run` passed on the smoke library with `ok=true`, `repaired_count=1`, and `failed_count=0`.
   - Real provider `extract summary --limit 1` passed on the smoke library with 41 summarized blocks, 1 section, 13 graph nodes, and 11 graph edges.
   - Real provider `repair --json` write path passed on the smoke library; `paper doctor --strict --json` then returned `ok=true`.

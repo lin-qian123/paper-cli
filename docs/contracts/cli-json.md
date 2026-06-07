@@ -413,7 +413,7 @@ Dry-run output:
 }
 ```
 
-Write output uses the same top-level shape, with generated bundle results under `extracted`. The command writes `extracts/summary/summary.json`, `summary.md`, and `source-map.json`; those file contracts are documented in [extract-summary-output.md](/Users/yuxiangzhang/Documents/program/paper-cli/docs/contracts/extract-summary-output.md).
+Write output uses the same top-level shape, with generated bundle results under `extracted`. The command writes `extracts/summary/summary.json`, `summary.md`, and `source-map.json`; those file contracts are documented in [extract-summary-output.md](extract-summary-output.md).
 
 ## `validate qed`
 

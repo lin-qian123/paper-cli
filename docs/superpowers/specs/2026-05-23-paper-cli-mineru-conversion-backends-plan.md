@@ -395,20 +395,20 @@ Expected files:
 After implementation, run these smoke tests with real PDFs under ignored local paths:
 
 ```bash
-paper init /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-batch-smoke
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-batch-smoke import /Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-fulltest-20260523-sample-input --collection QED/random-30 --json
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-batch-smoke convert --pending --converter mineru-api-batch --batch-size 10 --jobs 4 --json
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-batch-smoke status --json
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-batch-smoke doctor --strict --json
+paper init /path/to/paper-cli-mineru-batch-smoke
+paper --library /path/to/paper-cli-mineru-batch-smoke import /path/to/qed-sample-input --collection QED/random-30 --json
+paper --library /path/to/paper-cli-mineru-batch-smoke convert --pending --converter mineru-api-batch --batch-size 10 --jobs 4 --json
+paper --library /path/to/paper-cli-mineru-batch-smoke status --json
+paper --library /path/to/paper-cli-mineru-batch-smoke doctor --strict --json
 ```
 
 If local MinerU is installed:
 
 ```bash
-paper init /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-smoke
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-smoke import /Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-30-fulltest-20260523-sample-input --collection QED/random-30 --json
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-smoke convert --pending --converter mineru-local --local-backend pipeline --jobs 1 --json
-paper --library /Volumes/PHILIPS/programs/paper-cache/paper-cli-mineru-local-smoke doctor --strict --json
+paper init /path/to/paper-cli-mineru-local-smoke
+paper --library /path/to/paper-cli-mineru-local-smoke import /path/to/qed-sample-input --collection QED/random-30 --json
+paper --library /path/to/paper-cli-mineru-local-smoke convert --pending --converter mineru-local --local-backend pipeline --jobs 1 --json
+paper --library /path/to/paper-cli-mineru-local-smoke doctor --strict --json
 ```
 
 Record results in `TODO.md`; do not commit generated libraries, PDFs, MinerU ZIPs, images, or Markdown outputs.
@@ -419,4 +419,3 @@ Record results in `TODO.md`; do not commit generated libraries, PDFs, MinerU ZIP
 - Whether to expose `model_version`, `language`, `enable_formula`, `enable_table`, and `is_ocr` as CLI flags now or keep them in `paper-cli.yaml`.
 - Whether local `mineru` output layout is stable enough to normalize without a dedicated adapter version field.
 - Whether to implement callback support later. For a local-first CLI, polling is simpler and sufficient for now.
-
