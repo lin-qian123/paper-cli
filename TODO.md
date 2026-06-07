@@ -106,11 +106,12 @@ Status: implementation complete except for real large-scale cloud batch validati
 
 - 2026-06-07 MinerU author extraction improvements:
   - Multi-line author block collection: consecutive author fragments after the title heading are joined before author-line detection, so OCR-split authors like `Alice Zhang,\nBob Li` are recovered.
-  - Single-author detection: `_looks_like_author_line` now accepts names without list separators (commas/and/semicolons) when they look like a single person name — requires a space (Western) or CJK characters (Chinese), rejects all-caps values, and caps at 4 words.
+  - Conservative AI boundary follow-up: title-page author inference now requires explicit list separators (commas/and/semicolons). Single-author title-page candidates such as `Alice Zhang` or `张伟` remain evidence for later AI metadata repair instead of being written directly to `paper.yaml`.
+  - Author block continuation now stops before unrelated short lines once a complete separated author list has been found, preventing cases like `Alice Zhang, Bob Li\nProject Overview` from polluting the last author name.
+  - Markdown headings `#` through `######` now stop title-page author-block collection.
   - Chinese affiliation detection: added `_CN_AFFILIATION_MARKERS` (大学, 学院, 研究所, 研究院, 实验室, 重点实验室, 中心, 系, 中国科学院) so Chinese institution lines stop author-block collection.
-  - CJK minimum length: lowered the permissive minimum from 5 to 2 chars for CJK text so short Chinese names like `张伟` are accepted.
-  - New tests: multi-line author block collection, single Western/Chinese author without separator, section heading rejection, affiliation stopping, long-line stopping.
-  - `make verify` passed with 133 tests and ruff clean.
+  - New tests: multi-line author block collection, single Western/Chinese author deferral, section heading rejection, affiliation stopping, long-line stopping, short-heading pollution prevention, CJK section-heading rejection, and Markdown heading stopping.
+  - Verification: `uv run --extra dev pytest tests/test_mineru_metadata.py -q`, `uv run --extra dev pytest -q`, and `uv run --extra dev ruff check src tests`.
 
 - 2026-06-06 repair targeting and extract-summary contract docs:
   - Added `paper repair --paper`, `--collection`, and `--limit` so targeted repair can reuse the same bundle-selection style as `extract summary`.
@@ -378,7 +379,7 @@ Status: implementation complete except for real large-scale cloud batch validati
 ## Robustness Backlog
 
 - [x] Improve post-conversion author inference for `Journal - Year - Author - Title.pdf` filenames when MinerU provides the clean title.
-- [x] Improve direct author extraction from MinerU Markdown title pages when no explicit `Authors:` line exists and filename inference is unavailable.
+- [x] Improve conservative direct author extraction from MinerU Markdown title pages when no explicit `Authors:` line exists; ambiguous single-author candidates are intentionally left for AI metadata repair.
 - [x] Mark low-confidence metadata from filename parsing so conversion-time metadata can override it more aggressively.
 - [x] Normalize MinerU raw sidecar files into a dedicated raw-output directory for newly converted bundles.
 - [x] Add a real-MinerU smoke-test checklist that can be run manually without committing user PDFs.

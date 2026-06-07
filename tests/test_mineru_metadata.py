@@ -70,22 +70,20 @@ def test_title_page_collects_multi_line_author_block():
     assert confidence["creators"] == "medium"
 
 
-def test_title_page_detects_single_western_author_without_separator():
-    metadata, sources, _ = extract_mineru_metadata(
+def test_title_page_leaves_single_western_author_candidate_for_ai_repair():
+    metadata, _, _ = extract_mineru_metadata(
         "# Paper Title\n\nAlice Zhang\nInstitute of Physics\n"
     )
 
-    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang"]
-    assert sources["creators"] == "mineru-title-page"
+    assert "creators" not in metadata
 
 
-def test_title_page_detects_single_chinese_author_without_separator():
-    metadata, sources, _ = extract_mineru_metadata(
+def test_title_page_leaves_single_chinese_author_candidate_for_ai_repair():
+    metadata, _, _ = extract_mineru_metadata(
         "# 论文标题\n\n张伟\n北京大学\n"
     )
 
-    assert [c["name"] for c in metadata["creators"]] == ["张伟"]
-    assert sources["creators"] == "mineru-title-page"
+    assert "creators" not in metadata
 
 
 def test_title_page_skips_section_heading_like_single_author():
@@ -113,4 +111,28 @@ def test_title_page_stops_collecting_at_long_line():
         "in many-body quantum systems using tensor network methods applied to lattice models.\n"
     )
 
-    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang"]
+    assert "creators" not in metadata
+
+
+def test_title_page_does_not_merge_short_heading_into_author():
+    metadata, _, _ = extract_mineru_metadata(
+        "# Paper Title\n\nAlice Zhang, Bob Li\nProject Overview\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang", "Bob Li"]
+
+
+def test_title_page_rejects_short_chinese_section_heading_as_author():
+    metadata, _, _ = extract_mineru_metadata(
+        "# 论文标题\n\n方法\n\n正文\n"
+    )
+
+    assert "creators" not in metadata
+
+
+def test_title_page_markdown_heading_stops_author_collection():
+    metadata, _, _ = extract_mineru_metadata(
+        "# Paper Title\n\nAlice Zhang, Bob Li\n## Introduction\n"
+    )
+
+    assert [c["name"] for c in metadata["creators"]] == ["Alice Zhang", "Bob Li"]

@@ -37,6 +37,7 @@ _CN_AFFILIATION_MARKERS = [
 ]
 DOI_PATTERN = re.compile(r"\b(10\.\d{4,9}/[^\s<>'\"{}|\\^`\]]+)", re.IGNORECASE)
 ARXIV_PATTERN = re.compile(r"\barXiv\s*:\s*([0-9]{4}\.[0-9]{4,5}(?:v\d+)?)", re.IGNORECASE)
+MARKDOWN_HEADING_PATTERN = re.compile(r"^#{1,6}\s+")
 JOURNAL_LABELS = {
     "SCIENTIFIC REPORTS",
     "NATURE",
@@ -130,10 +131,11 @@ def _title_page_authors_line(lines: list[str], title: str | None) -> str | None:
     fragments: list[str] = []
 
     for line in lines[:60]:
-        if line.startswith("# "):
+        if MARKDOWN_HEADING_PATTERN.match(line):
             if passed_title and fragments:
                 break
-            passed_title = True
+            if line.startswith("# "):
+                passed_title = True
             continue
         if not passed_title:
             continue
@@ -146,10 +148,13 @@ def _title_page_authors_line(lines: list[str], title: str | None) -> str | None:
             if fragments:
                 break
             continue
-        if len(stripped) <= 120:
-            fragments.append(stripped)
-        elif fragments:
+        if len(stripped) > 120:
+            if fragments:
+                break
+            continue
+        if fragments and not _can_extend_author_fragments(fragments[-1], stripped):
             break
+        fragments.append(stripped)
 
     if fragments:
         joined = " ".join(fragments)
@@ -158,8 +163,9 @@ def _title_page_authors_line(lines: list[str], title: str | None) -> str | None:
 
     passed_title = title is None
     for line in lines[:30]:
-        if line.startswith("# "):
-            passed_title = True
+        if MARKDOWN_HEADING_PATTERN.match(line):
+            if line.startswith("# "):
+                passed_title = True
             continue
         if not passed_title or not line:
             continue
@@ -176,8 +182,18 @@ def _is_non_author_line(value: str) -> bool:
     return any(marker in value for marker in _CN_AFFILIATION_MARKERS)
 
 
-def _looks_like_author_line(value: str) -> bool:
+def _has_author_separator(value: str) -> bool:
     lowered = value.lower()
+    return "," in value or ";" in value or " and " in lowered
+
+
+def _can_extend_author_fragments(previous: str, candidate: str) -> bool:
+    if previous.rstrip().endswith((",", ";")):
+        return True
+    return _has_author_separator(candidate)
+
+
+def _looks_like_author_line(value: str) -> bool:
     if _is_non_author_line(value):
         return False
     if len(value) > 240:
@@ -188,15 +204,8 @@ def _looks_like_author_line(value: str) -> bool:
         return False
     if sum(ch.isdigit() for ch in value) > 2:
         return False
-    has_separator = "," in value or " and " in lowered or ";" in value
-    if not has_separator:
-        if " " not in value and not has_cjk:
-            return False
-        letters = [ch for ch in value if ch.isalpha()]
-        if letters and all(ch.isupper() for ch in letters):
-            return False
-        if len(value.split()) > 4:
-            return False
+    if not _has_author_separator(value):
+        return False
     creators = normalize_creators(value)
     return bool(creators) and len(creators) <= 20
 

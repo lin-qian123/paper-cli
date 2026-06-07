@@ -276,7 +276,7 @@ The default naming format is metadata-first and user-configurable:
 {{ title truncate="100" }}
 ```
 
-The importer first creates a usable destination from fast metadata or file-name parsing. After MinerU conversion, `paper-cli` extracts better metadata and automatically renames the whole paper bundle unless the name is locked.
+The importer first creates a usable destination from fast metadata or file-name parsing. After MinerU conversion, `paper-cli` extracts better metadata and automatically renames the whole paper bundle unless the name is locked. MinerU title-page author inference stays conservative: explicit `Authors:` lines and clearly separated author lists can update metadata directly, while ambiguous single-author title-page candidates are left for AI metadata repair.
 
 ## Source Adapters
 
