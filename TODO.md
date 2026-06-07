@@ -92,17 +92,25 @@ Status: first implementation complete and unit-tested. The implementation plan i
 
 ## MinerU Productization Phase
 
-Status: implementation complete except for real large-scale cloud batch validation. The implementation plan is `docs/superpowers/specs/2026-05-26-paper-cli-mineru-productization-plan.md`.
+Status: implementation complete with real large-scale cloud batch validation executed on the QED corpus. The implementation plan is `docs/superpowers/specs/2026-05-26-paper-cli-mineru-productization-plan.md`.
 
 - [x] Productize local MinerU environment management with config-driven executable resolution and strict doctor diagnostics.
 - [x] Improve deterministic MinerU metadata extraction from converted Markdown and local evidence before falling back to AI repair.
-- [ ] Run real large-scale `mineru-api-batch` validation when network conditions are stable.
+- [x] Run real large-scale `mineru-api-batch` validation when network conditions are stable.
 - [x] Extract shared MinerU output normalization for serial API, batch API, and local CLI outputs.
 - [x] Add conservative local MinerU concurrency auto-tuning with explicit CLI/config precedence.
 - [x] Script the QED validation workflow so random sampling, import, conversion, doctor, artifact counts, and report generation are repeatable.
 - [x] Harden the agent-facing CLI surface with clearer help, `resolve` / `get` / `inspect`, `convert --dry-run`, and richer `doctor --json` setup diagnostics.
 
 ## Validation Log
+
+- 2026-06-07 full QED `mineru-api-batch` validation:
+  - Source: `/Users/yuxiangzhang/Documents/Zoteropaper/QED/codex` with 519 PDFs.
+  - Validation library: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-api-batch-20260607-all519`.
+  - Command: `uv run python -m paper_cli validate qed --source /Users/yuxiangzhang/Documents/Zoteropaper/QED/codex --library-root /Volumes/PHILIPS/programs/paper-cache --count 519 --seed 20260607 --name paper-cli-qed-api-batch-20260607-all519 --converter mineru-api-batch --batch-size 20 --jobs 4 --replace --json`.
+  - Result: 519 sampled/imported bundles, 516 converted bundles, 516 `paper.md`, 516 `images/`, 516 `raw/mineru/`, 519 `conversion.json`, 382 automatic renames.
+  - Strict doctor result: 3 `failed-conversion` issues, all caused by MinerU API's `number of pages exceeds limit (200 pages)` response. Failed PDFs had 242, 270, and 226 pages.
+  - Report: `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-api-batch-20260607-all519-test-report.md`.
 
 - 2026-06-07 MinerU author extraction improvements:
   - Multi-line author block collection: consecutive author fragments after the title heading are joined before author-line detection, so OCR-split authors like `Alice Zhang,\nBob Li` are recovered.
@@ -383,6 +391,7 @@ Status: implementation complete except for real large-scale cloud batch validati
 - [x] Mark low-confidence metadata from filename parsing so conversion-time metadata can override it more aggressively.
 - [x] Normalize MinerU raw sidecar files into a dedicated raw-output directory for newly converted bundles.
 - [x] Add a real-MinerU smoke-test checklist that can be run manually without committing user PDFs.
+- [ ] Add MinerU API preflight/reporting for PDFs above the 200-page service limit so expected failures are flagged before batch submission.
 
 ## Remaining Decisions
 
