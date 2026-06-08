@@ -105,6 +105,12 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-06-08 release preparation docs:
+  - Reworked `README.md` from a progress-oriented project note into a release-oriented user entry point with install, quick start, configuration, command families, privacy notes, validation evidence, and links to contract docs.
+  - Added `LICENSE` with MIT licensing, `CHANGELOG.md` with the initial `0.1.0` release notes, `SECURITY.md`, and `CONTRIBUTING.md`.
+  - Expanded `pyproject.toml` package metadata with readme, license, author, keywords, classifiers, and project URLs.
+  - Expanded `.gitignore` for release/build/test artifacts.
+
 - 2026-06-08 long-PDF `mineru-api-batch` splitting:
   - Added `--max-pages-per-part` to `paper convert` and `paper validate qed`; `mineru-api-batch` defaults to 195 pages per part to stay below MinerU API's 200-page service limit.
   - Long PDFs are split before upload, each part is submitted with a stable `:part:NNN` `data_id`, and successful part outputs are merged back into bundle-level `paper.md`, `images/part-*/`, and `raw/mineru/part-*/`.

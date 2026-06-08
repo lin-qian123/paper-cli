@@ -2,70 +2,97 @@
 
 `paper-cli` is a local-first, agent-native literature management CLI.
 
-Its purpose is to make research papers easier for AI agents to manage and read. Instead of treating PDF files as the main working surface, `paper-cli` builds structured paper bundles that contain the copied PDF, MinerU-converted Markdown, extracted images, metadata, conversion state, and indexes.
+It turns PDF collections into structured paper bundles that AI agents can inspect reliably: copied PDFs, MinerU Markdown, extracted images, metadata, conversion state, indexes, repair records, summaries, and library memory all live in explicit files on disk.
 
-## Current Status
+## Status
 
-Local-folder MVP implemented. The current code supports initializing a library, importing local PDFs, converting pending bundles through the serial MinerU API backend, the MinerU precise API batch backend, a local MinerU CLI backend, or fixture output, rebuilding indexes, listing papers, reporting status, running library checks, repairing converted bundles with an OpenAI-compatible AI provider, extracting AI article skeleton summaries from converted Markdown, and building collection-level plus library-level agent memory from existing summary outputs.
+`paper-cli` is at `v0.1.0` initial preview.
 
-Recent real-library hardening added MinerU network retry/backoff, a per-file or per-batch MinerU wait limit, interrupted-conversion job cleanup, a strict doctor mode for batch audits, guards against OCR-damaged MinerU titles causing bad bundle renames, and selectable `mineru-api-batch` / `mineru-local` conversion backends. A 519-PDF QED `mineru-api-batch` validation completed with 516 successful conversions before long-PDF splitting was added; the 3 failures were PDFs above MinerU API's 200-page limit. Those 3 long PDFs now pass targeted split validation with strict doctor clean.
+The first release is usable for local PDF libraries and agent workflows:
 
-The built-in AI repair phase is now usable as a conservative post-conversion repair layer. It can repair metadata, rename bundles from repaired metadata, and patch low-risk Markdown extraction defects. Formula-heavy, table, reference, and math-heavy blocks are recorded as review-only warnings instead of being automatically rewritten.
+- Import local PDF files or folders into self-contained paper bundles.
+- Convert PDFs with MinerU through serial API, batch API, local CLI, or test fixture backends.
+- Preserve `original.pdf`, `paper.md`, `images/`, `paper.yaml`, `conversion.json`, and indexes.
+- Run structural checks with `paper doctor` and stricter batch-audit checks with `paper doctor --strict`.
+- Repair metadata and low-risk Markdown extraction defects with an OpenAI-compatible AI provider.
+- Extract article skeleton summaries with block, section, graph, and source-map traceability.
+- Build collection-level and library-level agent memory from existing summary outputs.
 
-The built-in AI extract summary phase is usable as a structured reading layer. `paper extract summary` creates block-level summaries, section-level skeletons, and a lightweight knowledge graph under `extracts/summary/`, with `source-map.json` preserving block IDs, line ranges, text hashes, and section paths for future side-by-side reading UIs. When summary extraction writes updated outputs, it now also refreshes the affected collection and library memory automatically.
+This is not yet a full literature manager. Zotero, BibTeX/CSL JSON, full-text search, and review queues are planned for later phases.
 
-The built-in AI memory build phase is now usable as a higher-level memory layer. `paper memory build` consumes existing `extracts/summary/summary.json` outputs, skips missing summaries instead of auto-generating them, writes collection memory under collection `_memory/`, writes top-level library memory under library `_memory/`, preserves links back to paper IDs, bundle paths, summary paths, source-map paths, section IDs, and block IDs, and keeps dirty/stale state in `indexes/memory-state.json`.
+## Install
 
-## Companion Research Plugin
+For development or local use from the repository:
 
-`paper-cli` is intentionally not a general literature search engine. Open-ended literature discovery, paper selection, author/team analysis, and research judgment should remain agent-led.
-
-The planned companion project is a separate sibling repository:
-
-```text
-/path/to/workspace/
-  paper-cli/
-  paper-research-plugin/
+```bash
+git clone git@github.com:lin-qian123/paper-cli.git
+cd paper-cli
+uv run paper --help
 ```
 
-`paper-research-plugin` owns topic research, author/team research, single-paper research, research reports, executable import manifests, and ingest orchestration. It calls `paper-cli` as the local backend for import, conversion, summary extraction, inspection, and doctor checks.
+Editable install:
 
-The design record lives in this repository because the plugin is tightly coupled to `paper-cli` contracts:
-
-```text
-docs/superpowers/specs/2026-06-05-paper-research-plugin-run-manifest-design.md
+```bash
+python3 -m pip install -e ".[dev]"
+paper --help
 ```
 
-The plugin implementation should initially live outside `src/paper_cli/` and outside the core CLI command surface so the two projects can be published as separate GitHub repositories.
+Requirements:
 
-The approved MVP direction is:
+- Python 3.11+
+- `uv` for the recommended development workflow
+- `MINERU_API_KEY` for MinerU cloud conversion
+- An OpenAI-compatible provider for AI repair, summary extraction, and memory build
 
-- Import local PDF files or folders.
-- Copy each PDF into a self-contained paper bundle.
-- Convert PDFs with MinerU.
-- Store `original.pdf`, `paper.md`, `images/`, `paper.yaml`, and conversion state together.
-- Use metadata-first naming with a configurable naming template.
-- Import quickly first, then automatically rename bundles after conversion provides better metadata.
-- Defer Zotero and other source adapters to a later phase.
+## Quick Start
 
-## Technology Direction
+```bash
+uv run paper init /path/to/paper-library
+uv run paper --library /path/to/paper-library import /path/to/pdfs --collection "plasma/qed" --json
+uv run paper --library /path/to/paper-library convert --pending --dry-run --json
+uv run paper --library /path/to/paper-library convert --pending --converter mineru-api-batch --json
+uv run paper --library /path/to/paper-library doctor --strict --json
+uv run paper --library /path/to/paper-library list --json
+```
 
-The MVP is implemented in Python because it is the fastest path for PDF metadata extraction, MinerU API integration, YAML/JSONL persistence, and test-driven iteration.
+The default cloud backend is serial `mineru-api`. For larger libraries, use `mineru-api-batch`.
 
-The long-term architecture should remain language-neutral. The stable contract is the paper bundle format, metadata files, indexes, CLI commands, structured `--json` output, and exit codes.
+## Configuration
 
-Rust is a strong candidate for later large-scale development, especially if the project needs a polished single-binary CLI, stronger concurrency, faster indexing, and easier cross-platform distribution. The MVP should therefore avoid exposing Python internals as the product API.
+MinerU cloud conversion reads:
 
-## MVP Commands
+```bash
+export MINERU_API_KEY="..."
+export MINERU_API_BASE="https://mineru.net/api/v4"  # optional
+export MINERU_MAX_WAIT_SECONDS=7200                 # optional
+```
+
+AI commands read an OpenAI-compatible chat completions provider:
+
+```bash
+export PAPER_AI_BASE_URL="https://api.openai.com/v1"
+export PAPER_AI_API_KEY="..."
+export PAPER_AI_MODEL="gpt-5.4-mini"
+```
+
+Local MinerU settings can be stored in `paper-cli.yaml`:
+
+```yaml
+mineru:
+  executable: /path/to/mineru
+  local_backend: pipeline
+  local_jobs: auto
+```
+
+Secrets should stay in environment variables or uncommitted local config files.
+
+## Core Commands
 
 ```bash
 paper init <library-dir>
 paper import <pdf-or-folder> --collection <path>
 paper import <pdf-or-folder> --inbox
 paper convert --pending
-paper convert --pending --converter mineru-api-batch --batch-size 20 --jobs 4
-paper convert --pending --converter mineru-local --local-backend pipeline --jobs 2
-paper convert --pending --dry-run
 paper list
 paper resolve <id-or-prefix-or-name-or-path>
 paper get <paper-id-or-query>
@@ -73,152 +100,141 @@ paper inspect <paper-id-or-query>
 paper status
 paper doctor
 paper doctor --strict
-paper repair
-paper memory build
-paper extract summary
 ```
 
-## Install For Development
+Agent-facing commands support `--json` wherever structured output is useful.
+
+## Conversion
+
+Cloud batch conversion:
 
 ```bash
-uv run --extra dev pytest -v
-```
-
-You can also install the project in editable mode:
-
-```bash
-python3 -m pip install -e ".[dev]"
-```
-
-Preferred local verification:
-
-```bash
-make verify
-```
-
-## Basic Workflow
-
-```bash
-uv run paper init /path/to/paper-library
-uv run paper --library /path/to/paper-library import /path/to/papers --collection "plasma/lwfa" --json
-uv run paper --library /path/to/paper-library convert --pending --dry-run --json
-uv run paper --library /path/to/paper-library convert --pending --json
-uv run paper --library /path/to/paper-library status --json
-uv run paper --library /path/to/paper-library doctor --json
-uv run paper --library /path/to/paper-library doctor --strict --json
-```
-
-During development, prefer `uv run paper ...` from the repository. The package also exposes the console script `paper` when installed in editable mode.
-
-Real MinerU cloud conversion reads the API key from `MINERU_API_KEY`. The default `paper convert --pending` behavior remains the serial `mineru-api` backend. For larger libraries, use `--converter mineru-api-batch`; it submits MinerU precise API batches, caps API upload-link requests at 50 files, uploads/downloads with bounded concurrency, records `batch_id` / `data_id` in `conversion.json`, and resumes an existing running batch before submitting duplicates. `--batch-size` defaults to `20`, and `--jobs` defaults to `4` for cloud upload/download work. Network calls are retried, and long-running remote tasks are bounded by `MINERU_MAX_WAIT_SECONDS`, defaulting to 30 minutes per file or batch. `mineru-api-batch` automatically splits PDFs above the MinerU API page limit into smaller PDFs before submission; `--max-pages-per-part` defaults to `195` so parts stay below the 200-page service ceiling. Split outputs are merged back into the same bundle as `paper.md`, `images/part-*/`, `raw/mineru/part-*/`, with `conversion.json.raw.split_parts` preserving page ranges and remote part diagnostics. Split conversions keep existing metadata and leave uncertain title/author cleanup to AI metadata repair, because long-document part outputs are more likely to expose non-title headings.
-
-Local MinerU conversion uses an installed `mineru` executable:
-
-```bash
-python3 -m paper_cli --library /path/to/paper-library convert --pending --converter mineru-local --local-backend pipeline --jobs 2 --json
-```
-
-`--local-backend` is passed to MinerU as `-b`, for example `pipeline`. The executable and default local settings can also be stored in `paper-cli.yaml`:
-
-```yaml
-mineru:
-  executable: /path/to/mineru/.venv/bin/mineru
-  local_backend: pipeline
-  local_jobs: auto
-```
-
-`local_jobs: auto` is intentionally conservative and currently resolves to one local MinerU process unless `--jobs` or a numeric config value overrides it. The local backend writes the same bundle contract as the cloud backends: `paper.md`, `images/`, `raw/mineru/`, and `conversion.json`.
-
-`paper doctor` checks structural integrity by default. `paper doctor --strict` additionally reports pending or failed conversions, dangling conversion job history, stale running conversions, missing MinerU batch mapping fields, and configured local MinerU executable problems, which is useful after batch conversion runs.
-
-`paper doctor --json` also reports setup diagnostics without printing secrets: library/config presence, MinerU API key availability, local MinerU executable information, and AI provider environment/config availability.
-
-For tests and dry runs, `convert` can use fixture output instead of the network:
-
-```bash
-python3 -m paper_cli --library /tmp/lib convert --pending --converter local-fixture --fixture-output /tmp/mineru-fixture --json
-```
-
-To plan a conversion without writing bundle files or contacting MinerU:
-
-```bash
-uv run paper --library /path/to/paper-library convert --pending --converter mineru-local --dry-run --json
-```
-
-The dry-run output includes the effective backend, batch size, jobs, pending bundles, setup diagnostics, and planned write targets.
-
-Agent-facing paper lookup commands:
-
-```bash
-uv run paper --library /path/to/paper-library resolve <id-prefix-or-name-or-path> --json
-uv run paper --library /path/to/paper-library get <paper-id-or-query> --json
-uv run paper --library /path/to/paper-library inspect <paper-id-or-query> --json
-```
-
-`resolve` turns a paper ID, ID prefix, title/name fragment, relative path, or bundle path into a single bundle. Ambiguous queries return non-zero with candidate matches. `get` returns the durable `paper.yaml` metadata surface, while `inspect` adds artifact presence plus parsed `conversion.json`, `repair.json`, and extract-summary JSON when present.
-
-For repeatable QED corpus validation, use the local validation helper. It samples PDFs deterministically, creates a symlink input folder and sample list, imports the sample, optionally converts it, runs doctor checks, counts artifacts, and writes a Markdown report under the requested library root:
-
-```bash
-python3 -m paper_cli validate qed \
-  --source /path/to/QED \
-  --library-root /path/to/library-root \
-  --count 30 \
-  --seed 20260525 \
-  --converter mineru-local \
-  --local-backend pipeline \
-  --jobs 1 \
-  --replace \
+uv run paper --library /path/to/paper-library convert \
+  --pending \
+  --converter mineru-api-batch \
+  --batch-size 20 \
+  --jobs 4 \
   --json
 ```
 
-Use `--no-convert` for a fast import/list/doctor validation without running MinerU.
+`mineru-api-batch`:
 
-AI repair reads an OpenAI-compatible chat completions provider from environment variables:
+- caps upload-link requests at 50 files;
+- uploads and downloads with bounded concurrency;
+- records `batch_id`, `data_id`, and remote state in `conversion.json`;
+- resumes existing running batches when possible;
+- splits PDFs above MinerU API's page limit into smaller PDFs before upload.
 
-```bash
-export PAPER_AI_BASE_URL="https://api.openai.com/v1"
-export PAPER_AI_API_KEY="..."
-export PAPER_AI_MODEL="gpt-5.4-mini"
-python3 -m paper_cli --library /path/to/paper-library repair --target metadata --dry-run --json
-python3 -m paper_cli --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
-python3 -m paper_cli --library /path/to/paper-library repair --json
-```
-
-`paper repair` defaults to `--target all`. It can repair metadata in `paper.yaml` and low-risk suspicious Markdown extraction blocks in `paper.md`; applied runs write `repair.json`, create bundle-local backups before file changes, and rebuild `indexes/papers.jsonl`. Use `--paper`, `--collection`, and `--limit` to scope repairs to specific converted bundles. Higher-risk scientific content is preserved and recorded as `review_only` warnings for later inspection; `repair.json` now includes aggregated `markdown.warning_summary` counts by reason together with affected block IDs.
-
-AI extract summary uses the same provider configuration and writes extraction outputs without modifying the paper source files:
+Long-PDF splitting defaults to 195 pages per part, leaving headroom below MinerU API's 200-page service ceiling:
 
 ```bash
-python3 -m paper_cli --library /path/to/paper-library extract summary --dry-run --json
-python3 -m paper_cli --library /path/to/paper-library extract summary --workers 16 --json
-python3 -m paper_cli --library /path/to/paper-library extract summary --paper-workers 16 --max-requests 500 --retries 2 --json
-python3 -m paper_cli --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
+uv run paper --library /path/to/paper-library convert \
+  --pending \
+  --converter mineru-api-batch \
+  --max-pages-per-part 195 \
+  --json
 ```
 
-`paper extract summary` defaults to converted bundles that do not already have `extracts/summary/summary.json`. Use `--force` to regenerate existing outputs, `--paper`, `--collection`, or `--limit` to control scope. Concurrency has three controls: `--paper-workers` for paper-level parallelism, `--workers` for per-paper block-batch parallelism, and `--max-requests` as a global provider request cap. `--paper-workers` and `--workers` default to `16`; `--max-requests` defaults to `500`. Per-paper workers are capped to the current paper count, and block workers are capped to the current paper's block-batch count. Provider requests are retried with `--retries` retries, default `2`, with a fixed 10-second wait between attempts. The command writes `summary.json`, `summary.md`, and `source-map.json`, then automatically refreshes the affected collection and library memory when extraction succeeds.
+Split outputs are merged back into the original bundle:
 
-AI memory build uses the same provider configuration but reads only existing summary outputs:
+```text
+paper.md
+images/part-001/
+images/part-002/
+raw/mineru/part-001/
+raw/mineru/part-002/
+conversion.json
+```
+
+`conversion.json.raw.split_parts` records page ranges and per-part remote diagnostics. Split conversions keep existing `paper.yaml` metadata and leave uncertain title/author cleanup to AI metadata repair.
+
+Local MinerU conversion:
 
 ```bash
-python3 -m paper_cli --library /path/to/paper-library memory build --dry-run --json
-python3 -m paper_cli --library /path/to/paper-library memory build --collection dual-modality --json
-python3 -m paper_cli --library /path/to/paper-library memory build --force --json
+uv run paper --library /path/to/paper-library convert \
+  --pending \
+  --converter mineru-local \
+  --local-backend pipeline \
+  --jobs 2 \
+  --json
 ```
 
-`paper memory build` defaults to converted bundles that already have `extracts/summary/summary.json`. It skips missing summaries and reports them instead of auto-running `paper extract summary`. Collection memory is written to `collections/<collection>/_memory/collection-memory.json`, `collection-memory.md`, and `paper-index.json`. Top-level library memory is written to `_memory/library-memory.json`, `library-memory.md`, and `collection-index.json`. Existing memory outputs are skipped by default and marked stale when source summary hashes no longer match; use `--force` to rebuild them. Library-change commands such as `import`, `convert`, and `repair` mark memory stale in `indexes/memory-state.json`, and successful `extract summary` runs clear and refresh the affected memory automatically.
+Fixture conversion for tests and dry runs:
 
-## Library Shape
+```bash
+uv run paper --library /tmp/lib convert \
+  --pending \
+  --converter local-fixture \
+  --fixture-output /tmp/mineru-fixture \
+  --json
+```
+
+## AI Repair
+
+```bash
+uv run paper --library /path/to/paper-library repair --target metadata --dry-run --json
+uv run paper --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
+uv run paper --library /path/to/paper-library repair --json
+```
+
+`paper repair` defaults to `--target all`.
+
+It can:
+
+- repair metadata in `paper.yaml`;
+- rename bundles after metadata repair;
+- patch low-risk suspicious Markdown extraction defects;
+- create bundle-local backups before writes;
+- record the latest run in `repair.json`.
+
+Higher-risk scientific content, formulas, tables, references, and long uncertain OCR prose are recorded as warnings instead of being automatically rewritten.
+
+## Summary Extraction
+
+```bash
+uv run paper --library /path/to/paper-library extract summary --dry-run --json
+uv run paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
+uv run paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
+```
+
+`paper extract summary` reads converted bundles and writes:
+
+```text
+extracts/summary/summary.json
+extracts/summary/summary.md
+extracts/summary/source-map.json
+```
+
+It does not modify source PDFs, `paper.md`, `paper.yaml`, or `repair.json`. Source traceability is preserved with block IDs, line ranges, text hashes, section paths, section block IDs, and graph source block IDs.
+
+## Memory Build
+
+```bash
+uv run paper --library /path/to/paper-library memory build --dry-run --json
+uv run paper --library /path/to/paper-library memory build --collection plasma/qed --json
+uv run paper --library /path/to/paper-library memory build --force --json
+```
+
+`paper memory build` consumes existing summary outputs only. It writes:
+
+```text
+collections/<collection>/_memory/collection-memory.json
+collections/<collection>/_memory/collection-memory.md
+collections/<collection>/_memory/paper-index.json
+_memory/library-memory.json
+_memory/library-memory.md
+_memory/collection-index.json
+```
+
+Library-changing commands mark memory stale, and successful summary extraction refreshes affected collection and library memory automatically.
+
+## Library Layout
 
 ```text
 paper-library/
   paper-cli.yaml
   collections/
     <collection-path>/
-      _memory/
-        collection-memory.json
-        collection-memory.md
-        paper-index.json
       <paper-name>/
         paper.yaml
         original.pdf
@@ -234,6 +250,10 @@ paper-library/
         backups/
         notes/
           README.md
+      _memory/
+        collection-memory.json
+        collection-memory.md
+        paper-index.json
   inbox/
     <paper-name>/
       paper.yaml
@@ -260,51 +280,56 @@ paper-library/
     collection-index.json
 ```
 
-## Naming
+## Data And Privacy
 
-The default naming format is metadata-first and user-configurable:
+`paper-cli` is local-first: bundle metadata, converted Markdown, images, repair records, summaries, and indexes are written to your chosen local library directory.
 
-```text
-{{if language == "zh"}}
-{{ firstCreator suffix=" - " }}
-{{elseif language == "zh-CN"}}
-{{ firstCreator suffix=" - " }}
-{{else}}
-{{creators  max="1" suffix=" et al. - "}}
-{{ endif }}
-{{ year suffix=" - " }}
-{{ title truncate="100" }}
+External services are used when you choose commands that require them:
+
+- MinerU cloud conversion uploads PDFs or split PDF parts to MinerU.
+- AI repair, summary extraction, and memory build send bounded text/evidence packets to the configured OpenAI-compatible provider.
+
+Do not use cloud conversion or AI commands on sensitive PDFs unless you are comfortable with the configured provider receiving that content.
+
+## Validation
+
+The current release has been validated with:
+
+- `uv run --extra dev pytest -q`
+- `uv run --extra dev ruff check src tests`
+- QED corpus `mineru-api-batch` validation with 519 PDFs
+- targeted long-PDF split validation for 242-, 270-, and 226-page PDFs
+- real-provider smoke tests for AI repair, summary extraction, and memory build
+
+Latest release details are in [CHANGELOG.md](CHANGELOG.md).
+
+## Documentation
+
+Contracts:
+
+- [paper-yaml.md](docs/contracts/paper-yaml.md)
+- [conversion-json.md](docs/contracts/conversion-json.md)
+- [cli-json.md](docs/contracts/cli-json.md)
+- [extract-summary-output.md](docs/contracts/extract-summary-output.md)
+- [source-adapters.md](docs/contracts/source-adapters.md)
+
+Smoke tests:
+
+- [mineru.md](docs/smoke-tests/mineru.md)
+- [ai-repair.md](docs/smoke-tests/ai-repair.md)
+
+Development history and open work are tracked in [TODO.md](TODO.md). Chinese documentation is available under `docs/zh/`.
+
+## Development
+
+```bash
+uv run --extra dev pytest -q
+uv run --extra dev ruff check src tests
+make verify
 ```
 
-The importer first creates a usable destination from fast metadata or file-name parsing. After MinerU conversion, `paper-cli` extracts better metadata and automatically renames the whole paper bundle unless the name is locked. MinerU title-page author inference stays conservative: explicit `Authors:` lines and clearly separated author lists can update metadata directly, while ambiguous single-author title-page candidates are left for AI metadata repair.
+Local test libraries can be kept under `paper-libraries/`; that directory is ignored by git because it may contain copied PDFs and generated MinerU outputs.
 
-## Source Adapters
+## License
 
-MVP:
-
-- Local folder import.
-
-Later phases:
-
-- Zotero read-only import.
-- Zotero linked-file and storage resolvers.
-- Attanger-style attachment root mapping.
-- BibTeX / CSL JSON import.
-- Other literature managers.
-
-## Development Notes
-
-See `TODO.md` for the current task list, `docs/superpowers/specs/2026-05-13-paper-cli-mvp-design.md` for the approved MVP design, `docs/superpowers/specs/2026-05-13-paper-cli-engineering-design.md` for the engineering design, `docs/superpowers/specs/2026-05-21-paper-cli-ai-repair-design.md` for the AI repair design, `docs/superpowers/specs/2026-05-21-paper-cli-extract-summary-design.md` for the AI extract summary design, `docs/superpowers/specs/2026-06-05-paper-cli-memory-build-design.md` for the AI memory build design, `docs/superpowers/specs/2026-05-23-paper-cli-mineru-conversion-backends-plan.md` for the MinerU conversion backend plan, `docs/development/2026-05-21-ai-repair-suspicious-blocks.md` for the AI repair suspicious-block optimization record, and `docs/contracts/extract-summary-output.md` for the summary artifact contract.
-
-Contract docs:
-
-- `docs/contracts/paper-yaml.md`
-- `docs/contracts/conversion-json.md`
-- `docs/contracts/cli-json.md`
-- `docs/contracts/source-adapters.md`
-- `docs/smoke-tests/mineru.md`
-- `docs/smoke-tests/ai-repair.md`
-
-Chinese documentation is available under `docs/zh/`.
-
-Local test libraries can be kept under `paper-libraries/`. That directory is ignored by git because it may contain copied PDFs and MinerU outputs.
+MIT. See [LICENSE](LICENSE).
