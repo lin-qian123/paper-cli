@@ -28,6 +28,7 @@ def run_qed_validation(
     local_backend: str | None = None,
     batch_size: int = 1,
     jobs: int | None = None,
+    max_pages_per_part: int | None = None,
     fixture_output: Path | None = None,
     no_convert: bool = False,
     replace: bool = False,
@@ -68,6 +69,7 @@ def run_qed_validation(
             library_dir=library_dir,
             local_backend=local_backend,
             batch_size=batch_size,
+            max_pages_per_part=max_pages_per_part,
             fixture_output=fixture_output,
         )
         effective_jobs = jobs
@@ -175,6 +177,7 @@ def _build_converter(
     library_dir: Path,
     local_backend: str | None,
     batch_size: int,
+    max_pages_per_part: int | None,
     fixture_output: Path | None,
 ):
     if converter_name == "local-fixture":
@@ -188,7 +191,10 @@ def _build_converter(
     if converter_name == "mineru-api-batch":
         from paper_cli.converters.mineru_api_batch import MinerUApiBatchConverter
 
-        return MinerUApiBatchConverter(batch_size=batch_size)
+        return MinerUApiBatchConverter(
+            batch_size=batch_size,
+            max_pages_per_part=max_pages_per_part,
+        )
     if converter_name == "mineru-local":
         from paper_cli.converters.mineru_local import MinerULocalConverter
 

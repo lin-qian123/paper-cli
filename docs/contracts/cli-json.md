@@ -71,6 +71,8 @@ Output:
 
 `converted` contains successfully converted bundle paths after any automatic rename.
 
+For `--converter mineru-api-batch`, PDFs above the MinerU API page limit are split automatically before upload. `--max-pages-per-part` controls the split size and defaults to `195`. The command still returns one converted bundle path per original paper; part-level page ranges and remote diagnostics are recorded in bundle-local `conversion.json` under `raw.split_parts`.
+
 Dry-run command:
 
 ```bash

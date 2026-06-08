@@ -38,6 +38,7 @@ def zip_bytes(markdown="# Converted\n"):
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("result/full.md", markdown)
         archive.writestr("result/images/fig.png", b"png")
+        archive.writestr("result/layout.json", "{}")
     return buffer.getvalue()
 
 
@@ -280,3 +281,154 @@ def test_mineru_api_batch_bounds_upload_timeout_by_remaining_batch_wait(tmp_path
 
     assert upload_timeouts
     assert max(upload_timeouts) <= 5
+
+
+def test_mineru_api_batch_splits_and_merges_long_pdf_parts(tmp_path, monkeypatch):
+    item = make_item(tmp_path, "long", paper_id="sha256:long")
+    part_ranges = []
+    posted_data_ids = []
+
+    monkeypatch.setattr(
+        "paper_cli.converters.mineru_api_batch.MinerUApiBatchConverter._pdf_page_count",
+        lambda self, pdf: 400,
+    )
+
+    def fake_extract(self, source_pdf, start_page, end_page, target_pdf):
+        part_ranges.append((start_page, end_page))
+        target_pdf.write_bytes(f"%PDF-1.4\npart {start_page}-{end_page}\n".encode())
+
+    def fake_post(url, json=None, **kwargs):
+        posted_data_ids.extend(file["data_id"] for file in json["files"])
+        return FakeResponse(
+            {
+                "code": 0,
+                "data": {
+                    "batch_id": "batch-split",
+                    "file_urls": [f"https://upload.example/{file['data_id']}" for file in json["files"]],
+                },
+            }
+        )
+
+    def fake_put(*args, **kwargs):
+        return FakeResponse({})
+
+    def fake_get(url, *args, **kwargs):
+        if "extract-results" in url:
+            return FakeResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "extract_result": [
+                            {
+                                "data_id": data_id,
+                                "state": "done",
+                                "full_zip_url": f"https://download.example/{data_id}.zip",
+                            }
+                            for data_id in posted_data_ids
+                        ]
+                    },
+                }
+            )
+        data_id = url.rsplit("/", 1)[-1].removesuffix(".zip")
+        part_number = int(data_id.rsplit(":", 1)[-1])
+        return FakeResponse(
+            content=zip_bytes(f"# Part {part_number}\n\n![](images/fig.png)\n")
+        )
+
+    monkeypatch.setattr(
+        "paper_cli.converters.mineru_api_batch.MinerUApiBatchConverter._extract_pdf_pages",
+        fake_extract,
+    )
+    monkeypatch.setattr("paper_cli.converters.mineru_api_batch.requests.post", fake_post)
+    monkeypatch.setattr("paper_cli.converters.mineru_api_batch.requests.put", fake_put)
+    monkeypatch.setattr("paper_cli.converters.mineru_api_batch.requests.get", fake_get)
+
+    result = MinerUApiBatchConverter(
+        api_key="test-key",
+        poll_interval=0,
+        max_pages_per_part=195,
+    ).convert_batch([item], tmp_path, jobs=2)[0]
+
+    assert result.ok is True
+    assert part_ranges == [(1, 195), (196, 390), (391, 400)]
+    assert posted_data_ids == ["sha256:long:part:001", "sha256:long:part:002", "sha256:long:part:003"]
+    markdown = (item.bundle_dir / "paper.md").read_text(encoding="utf-8")
+    assert "# Part 1" in markdown
+    assert "# Part 2" in markdown
+    assert "# Part 3" in markdown
+    assert "images/part-001/fig.png" in markdown
+    assert "images/part-002/fig.png" in markdown
+    assert (item.bundle_dir / "images" / "part-001" / "fig.png").exists()
+    assert (item.bundle_dir / "raw" / "mineru" / "part-001" / "layout.json").exists()
+    assert result.raw["split"] is True
+    assert [part["page_start"] for part in result.raw["split_parts"]] == [1, 196, 391]
+
+
+def test_mineru_api_batch_reports_split_part_failure(tmp_path, monkeypatch):
+    item = make_item(tmp_path, "long-fail", paper_id="sha256:long-fail")
+    posted_data_ids = []
+
+    monkeypatch.setattr(
+        "paper_cli.converters.mineru_api_batch.MinerUApiBatchConverter._pdf_page_count",
+        lambda self, pdf: 220,
+    )
+
+    def fake_extract(self, source_pdf, start_page, end_page, target_pdf):
+        target_pdf.write_bytes(f"%PDF-1.4\npart {start_page}-{end_page}\n".encode())
+
+    def fake_post(url, json=None, **kwargs):
+        posted_data_ids.extend(file["data_id"] for file in json["files"])
+        return FakeResponse(
+            {
+                "code": 0,
+                "data": {
+                    "batch_id": "batch-split-fail",
+                    "file_urls": [f"https://upload.example/{file['data_id']}" for file in json["files"]],
+                },
+            }
+        )
+
+    def fake_put(*args, **kwargs):
+        return FakeResponse({})
+
+    def fake_get(url, *args, **kwargs):
+        if "extract-results" in url:
+            return FakeResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "extract_result": [
+                            {
+                                "data_id": posted_data_ids[0],
+                                "state": "done",
+                                "full_zip_url": "https://download.example/part-1.zip",
+                            },
+                            {
+                                "data_id": posted_data_ids[1],
+                                "state": "failed",
+                                "err_msg": "part parse failed",
+                            },
+                        ]
+                    },
+                }
+            )
+        return FakeResponse(content=zip_bytes("# Part 1\n"))
+
+    monkeypatch.setattr(
+        "paper_cli.converters.mineru_api_batch.MinerUApiBatchConverter._extract_pdf_pages",
+        fake_extract,
+    )
+    monkeypatch.setattr("paper_cli.converters.mineru_api_batch.requests.post", fake_post)
+    monkeypatch.setattr("paper_cli.converters.mineru_api_batch.requests.put", fake_put)
+    monkeypatch.setattr("paper_cli.converters.mineru_api_batch.requests.get", fake_get)
+
+    result = MinerUApiBatchConverter(
+        api_key="test-key",
+        poll_interval=0,
+        max_pages_per_part=195,
+    ).convert_batch([item], tmp_path, jobs=2)[0]
+
+    assert result.ok is False
+    assert result.error == "split part 2 failed: part parse failed"
+    assert result.raw["split"] is True
+    assert result.raw["split_parts"][1]["error"] == "part parse failed"

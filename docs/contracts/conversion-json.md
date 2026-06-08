@@ -27,7 +27,36 @@ The file exists after a conversion attempt has run.
   "data_id": "sha256:...",
   "remote_state": "done",
   "markdown": "paper.md",
-  "images": "images"
+  "images": "images",
+  "raw": {
+    "split": true,
+    "max_pages_per_part": 195,
+    "page_count": 226,
+    "split_parts": [
+      {
+        "part": 1,
+        "page_start": 1,
+        "page_end": 195,
+        "data_id": "sha256:...:part:001",
+        "batch_id": "mineru-batch-id",
+        "remote_state": "done",
+        "ok": true,
+        "error": null,
+        "zip_url": "https://..."
+      },
+      {
+        "part": 2,
+        "page_start": 196,
+        "page_end": 226,
+        "data_id": "sha256:...:part:002",
+        "batch_id": "mineru-batch-id",
+        "remote_state": "done",
+        "ok": true,
+        "error": null,
+        "zip_url": "https://..."
+      }
+    ]
+  }
 }
 ```
 
@@ -65,6 +94,7 @@ The file exists after a conversion attempt has run.
 - `remote_state`: optional remote item state reported by MinerU.
 - `markdown`: Markdown output path relative to the bundle.
 - `images`: images directory path relative to the bundle.
+- `raw`: optional converter-specific diagnostics. For long `mineru-api-batch` PDFs, `raw.split` is `true` and `raw.split_parts` records part numbers, page ranges, per-part `data_id` / `batch_id`, remote states, errors, and ZIP URLs.
 
 ## Bundle Output Contract
 
@@ -73,12 +103,16 @@ When conversion succeeds, the bundle should contain:
 ```text
 paper.md
 images/
+  part-001/
+  part-002/
 conversion.json
 raw/
   mineru/
+    part-001/
+    part-002/
 ```
 
-`paper.md` and `images/` are the primary agent reading surface. MinerU sidecar files such as `layout.json`, `*_content_list.json`, and `*_origin.pdf` belong under `raw/mineru/`.
+`paper.md` and `images/` are the primary agent reading surface. MinerU sidecar files such as `layout.json`, `*_content_list.json`, and `*_origin.pdf` belong under `raw/mineru/`. Long PDF splitting may namespace image and raw-output directories by part; merged Markdown rewrites image references to the corresponding `images/part-*/` path. Split conversions intentionally keep existing `paper.yaml` metadata instead of applying MinerU title-page inference from the merged Markdown; uncertain long-document metadata cleanup belongs in AI metadata repair.
 
 ## Job History
 

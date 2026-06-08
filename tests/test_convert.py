@@ -476,6 +476,87 @@ def test_convert_pending_batch_converter_writes_success_and_failure(tmp_path):
     assert failed_payload["error"] == "remote item failed"
 
 
+def test_convert_pending_batch_writes_raw_result_diagnostics(tmp_path):
+    class DiagnosticBatchConverter:
+        name = "diagnostic-batch"
+
+        def convert_batch(self, items, output_dir, *, jobs=1):
+            item = items[0]
+            markdown = item.output_dir / "paper.md"
+            markdown.write_text("# Batch Success\n", encoding="utf-8")
+            (item.output_dir / "images").mkdir()
+            return [
+                BatchConversionResult(
+                    bundle_dir=item.bundle_dir,
+                    ok=True,
+                    markdown_path=markdown,
+                    images_dir=item.output_dir / "images",
+                    raw={
+                        "diagnostic": True,
+                        "split_parts": [
+                            {"part": 1, "page_start": 1, "page_end": 195, "ok": True}
+                        ],
+                    },
+                )
+            ]
+
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    pdf = tmp_path / "A.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    converted = convert_pending(library, DiagnosticBatchConverter(), batch_size=1)
+
+    assert len(converted) == 1
+    payload = json.loads((library / "inbox" / "Batch Success" / "conversion.json").read_text())
+    assert payload["raw"]["diagnostic"] is True
+    assert payload["raw"]["split_parts"][0]["page_end"] == 195
+
+
+def test_convert_pending_split_batch_keeps_existing_metadata_for_ai_repair(tmp_path):
+    class SplitBatchConverter:
+        name = "split-batch"
+
+        def convert_batch(self, items, output_dir, *, jobs=1):
+            item = items[0]
+            markdown = item.output_dir / "paper.md"
+            markdown.write_text("# View the article online for updates\n", encoding="utf-8")
+            (item.output_dir / "images").mkdir()
+            return [
+                BatchConversionResult(
+                    bundle_dir=item.bundle_dir,
+                    ok=True,
+                    markdown_path=markdown,
+                    images_dir=item.output_dir / "images",
+                    raw={
+                        "split": True,
+                        "split_parts": [
+                            {"part": 1, "page_start": 1, "page_end": 195, "ok": True},
+                            {"part": 2, "page_start": 196, "page_end": 226, "ok": True},
+                        ],
+                    },
+                )
+            ]
+
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    pdf = tmp_path / "Author - 2026 - Good Filename Title.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    converted = convert_pending(library, SplitBatchConverter(), batch_size=1)
+
+    assert len(converted) == 1
+    bundle = library / "inbox" / "Author et al. - 2026 - Good Filename Title"
+    assert bundle.exists()
+    record = read_paper(bundle)
+    assert record.metadata["title"] == "Good Filename Title"
+    assert "View the article" not in record.metadata["title"]
+    payload = json.loads((bundle / "conversion.json").read_text())
+    assert payload["raw"]["split"] is True
+
+
 def test_convert_pending_batch_records_interrupted_jobs_before_reraising(tmp_path):
     class InterruptingBatchConverter:
         name = "interrupting-batch"

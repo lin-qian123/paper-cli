@@ -97,12 +97,21 @@ Status: implementation complete with real large-scale cloud batch validation exe
 - [x] Productize local MinerU environment management with config-driven executable resolution and strict doctor diagnostics.
 - [x] Improve deterministic MinerU metadata extraction from converted Markdown and local evidence before falling back to AI repair.
 - [x] Run real large-scale `mineru-api-batch` validation when network conditions are stable.
+- [x] Add automatic long-PDF splitting and merged output for `mineru-api-batch` so PDFs above MinerU API's 200-page service limit can be submitted in 195-page parts.
 - [x] Extract shared MinerU output normalization for serial API, batch API, and local CLI outputs.
 - [x] Add conservative local MinerU concurrency auto-tuning with explicit CLI/config precedence.
 - [x] Script the QED validation workflow so random sampling, import, conversion, doctor, artifact counts, and report generation are repeatable.
 - [x] Harden the agent-facing CLI surface with clearer help, `resolve` / `get` / `inspect`, `convert --dry-run`, and richer `doctor --json` setup diagnostics.
 
 ## Validation Log
+
+- 2026-06-08 long-PDF `mineru-api-batch` splitting:
+  - Added `--max-pages-per-part` to `paper convert` and `paper validate qed`; `mineru-api-batch` defaults to 195 pages per part to stay below MinerU API's 200-page service limit.
+  - Long PDFs are split before upload, each part is submitted with a stable `:part:NNN` `data_id`, and successful part outputs are merged back into bundle-level `paper.md`, `images/part-*/`, and `raw/mineru/part-*/`.
+  - `conversion.json` now preserves optional converter diagnostics under `raw`; split conversions record `raw.split_parts` with part number, page range, part `data_id`, batch id, remote state, ZIP URL, and error.
+  - Split conversions keep existing `paper.yaml` metadata instead of applying MinerU title-page inference from merged long-document Markdown; uncertain title/author cleanup is left for AI metadata repair.
+  - Added unit tests for long-PDF split/merge, split-part failure reporting, split metadata conservatism, and bundle-level raw diagnostics persistence.
+  - Real validation: the 3 QED PDFs that previously failed with MinerU API's 200-page limit converted successfully under `/Volumes/PHILIPS/programs/paper-cache/paper-cli-qed-longpdf-split-20260608`; strict doctor returned no issues, each bundle has 2 split parts, and automatic renames stayed at 0.
 
 - 2026-06-07 full QED `mineru-api-batch` validation:
   - Source: `/Users/yuxiangzhang/Documents/Zoteropaper/QED/codex` with 519 PDFs.
@@ -391,7 +400,7 @@ Status: implementation complete with real large-scale cloud batch validation exe
 - [x] Mark low-confidence metadata from filename parsing so conversion-time metadata can override it more aggressively.
 - [x] Normalize MinerU raw sidecar files into a dedicated raw-output directory for newly converted bundles.
 - [x] Add a real-MinerU smoke-test checklist that can be run manually without committing user PDFs.
-- [ ] Add MinerU API preflight/reporting for PDFs above the 200-page service limit so expected failures are flagged before batch submission.
+- [ ] Improve resume/reporting for partially completed split long-PDF conversions after interruption.
 
 ## Remaining Decisions
 

@@ -182,6 +182,7 @@ def _write_conversion_json(
     batch_id: str | None = None,
     data_id: str | None = None,
     remote_state: str | None = None,
+    raw: dict | None = None,
 ) -> None:
     payload = {
         "schema_version": 1,
@@ -202,6 +203,8 @@ def _write_conversion_json(
         payload["data_id"] = data_id
     if remote_state:
         payload["remote_state"] = remote_state
+    if raw:
+        payload["raw"] = raw
     (bundle_dir / "conversion.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -284,6 +287,7 @@ def _finish_conversion_result(
             batch_id=getattr(result, "batch_id", None),
             data_id=getattr(result, "data_id", None),
             remote_state=getattr(result, "remote_state", None),
+            raw=getattr(result, "raw", None),
         )
         _append_conversion_job(
             library_dir,
@@ -302,10 +306,14 @@ def _finish_conversion_result(
         return None
 
     markdown_path = result.markdown_path or (bundle_dir / "paper.md")
-    metadata_update, update_sources, update_confidence = extract_mineru_metadata(
-        markdown_path.read_text(encoding="utf-8"),
-        existing=record.metadata,
-    )
+    split_conversion = bool(getattr(result, "raw", {}).get("split"))
+    if split_conversion:
+        metadata_update, update_sources, update_confidence = {}, {}, {}
+    else:
+        metadata_update, update_sources, update_confidence = extract_mineru_metadata(
+            markdown_path.read_text(encoding="utf-8"),
+            existing=record.metadata,
+        )
     bad_title = bad_converted_title(
         str(record.metadata.get("title") or ""),
         str(metadata_update.get("title") or ""),
@@ -346,6 +354,7 @@ def _finish_conversion_result(
         batch_id=getattr(result, "batch_id", None),
         data_id=getattr(result, "data_id", None),
         remote_state=getattr(result, "remote_state", None),
+        raw=getattr(result, "raw", None),
     )
     renamed_bundle = maybe_rename_bundle(library_dir, bundle_dir, record)
     _append_conversion_job(

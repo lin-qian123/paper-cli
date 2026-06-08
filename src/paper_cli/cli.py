@@ -57,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("--batch-size", type=int, default=20, help="papers per batch")
     convert_parser.add_argument("--jobs", type=int, default=None, help="backend concurrency override")
+    convert_parser.add_argument(
+        "--max-pages-per-part",
+        type=int,
+        default=None,
+        help="split long MinerU API PDFs into parts with at most this many pages",
+    )
     convert_parser.add_argument("--local-backend", help="MinerU local backend passed as -b")
     convert_parser.add_argument("--fixture-output", help="fixture MinerU output for tests/dry runs")
     convert_parser.add_argument("--dry-run", action="store_true", help="plan conversion without writes")
@@ -144,6 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
     qed_parser.add_argument("--local-backend")
     qed_parser.add_argument("--batch-size", type=int, default=1)
     qed_parser.add_argument("--jobs", type=int)
+    qed_parser.add_argument("--max-pages-per-part", type=int)
     qed_parser.add_argument("--fixture-output")
     qed_parser.add_argument("--no-convert", action="store_true")
     qed_parser.add_argument("--replace", action="store_true")
@@ -208,7 +215,10 @@ def main(argv: list[str] | None = None) -> int:
         elif converter_name == "mineru-api-batch":
             from .converters.mineru_api_batch import MinerUApiBatchConverter
 
-            converter = MinerUApiBatchConverter(batch_size=args.batch_size)
+            converter = MinerUApiBatchConverter(
+                batch_size=args.batch_size,
+                max_pages_per_part=args.max_pages_per_part,
+            )
         else:
             from .converters.mineru_local import MinerULocalConverter
 
@@ -510,6 +520,7 @@ def main(argv: list[str] | None = None) -> int:
             local_backend=args.local_backend,
             batch_size=args.batch_size,
             jobs=args.jobs,
+            max_pages_per_part=args.max_pages_per_part,
             fixture_output=Path(args.fixture_output) if args.fixture_output else None,
             no_convert=args.no_convert,
             replace=args.replace,
