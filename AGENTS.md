@@ -84,5 +84,6 @@ The MVP imports local PDF files or folders, copies PDFs into the library, conver
 ## Documentation Expectations
 
 - Update `README.md` when project positioning, commands, install steps, or current status changes.
+- If `README.zh-CN.md` exists, treat `README.md` as the source-of-truth README and keep `README.zh-CN.md` as a content-equivalent Simplified Chinese translation. The Chinese README may use natural Chinese phrasing, but it must preserve the same user-facing positioning, section structure, install steps, command examples, status, validation notes, limitations, and product claims unless a deliberate bilingual-doc update changes both files together.
 - Update `TODO.md` after each meaningful development pass.
 - Write larger approved designs under `docs/superpowers/specs/`.

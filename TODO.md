@@ -105,6 +105,24 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-06-09 user-facing install documentation rewrite:
+  - Rewrote the English and Chinese README install sections around user installation instead of developer execution.
+  - Added `pipx install "git+https://github.com/lin-qian123/paper-cli.git"` as the recommended isolated user install path, with `paper ...` as the normal command after installation.
+  - Moved virtualenv/editable install and `uv run ...` guidance into the development section.
+  - Changed README command examples from `uv run paper ...` to direct `paper ...` for user-facing usage.
+  - Documentation-only change; verification not run.
+
+- 2026-06-09 bilingual README synchronization rule clarification:
+  - Clarified in `AGENTS.md` that `README.zh-CN.md` should be a content-equivalent Simplified Chinese translation of `README.md`, not a separate Chinese copy with divergent content.
+  - Localized remaining English-like Chinese README headings and terms where the command/file names did not require English.
+  - Documentation-only change; verification not run.
+
+- 2026-06-09 install command documentation sync:
+  - Clarified in both `README.md` and `README.zh-CN.md` that `uv run paper ...` is for running from a source checkout without installing, while an editable or packaged install exposes the direct `paper ...` command.
+  - Added installed-command notes under Quick Start in both English and Chinese docs.
+  - Updated `AGENTS.md` to require `README.md` and `README.zh-CN.md` synchronization for user-facing positioning, install steps, command examples, status, validation notes, and important limitations.
+  - Documentation-only change; verification not run.
+
 - 2026-06-09 Chinese README translationese cleanup:
   - Replaced awkward literal phrases in `README.zh-CN.md`, including table wording such as "内部消费", with clearer Chinese descriptions.
   - Localized provider/configuration/validation wording while keeping command names, file paths, and technical terms stable where useful.

@@ -70,37 +70,46 @@ This is not yet a full literature manager. Zotero, BibTeX/CSL JSON, full-text se
 
 ## Install
 
-For development or local use from the repository:
+Recommended user install with `pipx`:
+
+```bash
+brew install pipx
+pipx ensurepath
+pipx install "git+https://github.com/lin-qian123/paper-cli.git"
+paper --help
+```
+
+`pipx` installs `paper-cli` into an isolated Python environment and exposes the `paper` command on your shell `PATH`. If `paper` is not found immediately after `pipx ensurepath`, restart your terminal or follow the shell instruction printed by `pipx`.
+
+Install from a local source checkout:
 
 ```bash
 git clone git@github.com:lin-qian123/paper-cli.git
 cd paper-cli
-uv run paper --help
-```
-
-Editable install:
-
-```bash
-python3 -m pip install -e ".[dev]"
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e .
 paper --help
 ```
+
+After installation, normal usage is always `paper ...`.
 
 Requirements:
 
 - Python 3.11+
-- `uv` for the recommended development workflow
+- `pipx` for the recommended user install
 - `MINERU_API_KEY` for MinerU cloud conversion
 - An OpenAI-compatible provider for AI repair, summary extraction, and memory build
 
 ## Quick Start
 
 ```bash
-uv run paper init /path/to/paper-library
-uv run paper --library /path/to/paper-library import /path/to/pdfs --collection "plasma/qed" --json
-uv run paper --library /path/to/paper-library convert --pending --dry-run --json
-uv run paper --library /path/to/paper-library convert --pending --converter mineru-api-batch --json
-uv run paper --library /path/to/paper-library doctor --strict --json
-uv run paper --library /path/to/paper-library list --json
+paper init /path/to/paper-library
+paper --library /path/to/paper-library import /path/to/pdfs --collection "plasma/qed" --json
+paper --library /path/to/paper-library convert --pending --dry-run --json
+paper --library /path/to/paper-library convert --pending --converter mineru-api-batch --json
+paper --library /path/to/paper-library doctor --strict --json
+paper --library /path/to/paper-library list --json
 ```
 
 The default cloud backend is serial `mineru-api`. For larger libraries, use `mineru-api-batch`.
@@ -157,7 +166,7 @@ Agent-facing commands support `--json` wherever structured output is useful.
 Cloud batch conversion:
 
 ```bash
-uv run paper --library /path/to/paper-library convert \
+paper --library /path/to/paper-library convert \
   --pending \
   --converter mineru-api-batch \
   --batch-size 20 \
@@ -176,7 +185,7 @@ uv run paper --library /path/to/paper-library convert \
 Long-PDF splitting defaults to 195 pages per part, leaving headroom below MinerU API's 200-page service ceiling:
 
 ```bash
-uv run paper --library /path/to/paper-library convert \
+paper --library /path/to/paper-library convert \
   --pending \
   --converter mineru-api-batch \
   --max-pages-per-part 195 \
@@ -199,7 +208,7 @@ conversion.json
 Local MinerU conversion:
 
 ```bash
-uv run paper --library /path/to/paper-library convert \
+paper --library /path/to/paper-library convert \
   --pending \
   --converter mineru-local \
   --local-backend pipeline \
@@ -210,7 +219,7 @@ uv run paper --library /path/to/paper-library convert \
 Fixture conversion for tests and dry runs:
 
 ```bash
-uv run paper --library /tmp/lib convert \
+paper --library /tmp/lib convert \
   --pending \
   --converter local-fixture \
   --fixture-output /tmp/mineru-fixture \
@@ -220,9 +229,9 @@ uv run paper --library /tmp/lib convert \
 ## AI Repair
 
 ```bash
-uv run paper --library /path/to/paper-library repair --target metadata --dry-run --json
-uv run paper --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
-uv run paper --library /path/to/paper-library repair --json
+paper --library /path/to/paper-library repair --target metadata --dry-run --json
+paper --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
+paper --library /path/to/paper-library repair --json
 ```
 
 `paper repair` defaults to `--target all`.
@@ -240,9 +249,9 @@ Higher-risk scientific content, formulas, tables, references, and long uncertain
 ## Summary Extraction
 
 ```bash
-uv run paper --library /path/to/paper-library extract summary --dry-run --json
-uv run paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
-uv run paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
+paper --library /path/to/paper-library extract summary --dry-run --json
+paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
+paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
 `paper extract summary` reads converted bundles and writes:
@@ -258,9 +267,9 @@ It does not modify source PDFs, `paper.md`, `paper.yaml`, or `repair.json`. Sour
 ## Memory Build
 
 ```bash
-uv run paper --library /path/to/paper-library memory build --dry-run --json
-uv run paper --library /path/to/paper-library memory build --collection plasma/qed --json
-uv run paper --library /path/to/paper-library memory build --force --json
+paper --library /path/to/paper-library memory build --dry-run --json
+paper --library /path/to/paper-library memory build --collection plasma/qed --json
+paper --library /path/to/paper-library memory build --force --json
 ```
 
 `paper memory build` consumes existing summary outputs only. It turns source-grounded per-paper summaries into collection-level and library-level memory that agents can reuse across sessions. It writes:
@@ -371,10 +380,18 @@ Development history and open work are tracked in [TODO.md](TODO.md). Chinese doc
 ## Development
 
 ```bash
+git clone git@github.com:lin-qian123/paper-cli.git
+cd paper-cli
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e ".[dev]"
+paper --help
 uv run --extra dev pytest -q
 uv run --extra dev ruff check src tests
 make verify
 ```
+
+`uv run ...` is a development convenience for running commands from the repository. User-facing examples use the installed `paper` command.
 
 Local test libraries can be kept under `paper-libraries/`; that directory is ignored by git because it may contain copied PDFs and generated MinerU outputs.
 

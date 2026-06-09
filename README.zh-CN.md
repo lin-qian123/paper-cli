@@ -32,7 +32,7 @@ PDF 很适合承载论文，却并不适合让 agent 直接工作。
 | Papis 类 CLI 文献库 | 较好 | 部分支持 | 文件化元数据 | 无 | 轻量的人控论文集合管理 |
 | PDF parser / OCR 工具 | 否 | 部分支持 | 通常是单次运行输出 | 无 | 转换单个 PDF |
 | Paper QA / RAG 工具 | 部分支持 | 主要在工具内部使用 | 通常由索引管理 | 部分支持 | 对文档提问 |
-| `paper-cli` | 可用，但不是核心 | 一等目标 | 是 | 是 | 为 agent 构建持久 paper bundle |
+| `paper-cli` | 可用，但不是核心 | 一等目标 | 是 | 是 | 为 agent 构建持久论文 bundle |
 
 项目的核心思想很朴素：
 
@@ -42,17 +42,17 @@ paper bundle = PDF + Markdown + images + YAML metadata + JSON state + AI outputs
 
 这个 bundle 就是 API。它让 agent 面对的不是一堆难以解析的 PDF，也不是某个 GUI 应用背后的隐式数据库，而是一套可以直接读取、检查、追踪和复用的研究文件。
 
-## 分层 Agent Memory
+## 分层 Agent 记忆
 
 `paper-cli` 不只负责把 PDF 转成 Markdown。更重要的是，它可以把论文内容进一步提炼成 agent 能长期复用的分层记忆。
 
 第一层是单篇论文摘要，保存在 `extracts/summary/`。它不仅有摘要文本，还保留来源映射、文本块 ID、行号范围、文本 hash、章节路径和图谱来源文本块。也就是说，摘要不是凭空生成的，它可以一路追溯回原文里的具体证据块。
 
-第二层是 collection memory，保存在每个 collection 的 `_memory/` 目录中。它会提炼这一组论文的核心主题、常见方法、关键证据和跨论文联系。
+第二层是 collection 记忆，保存在每个 collection 的 `_memory/` 目录中。它会提炼这一组论文的核心主题、常见方法、关键证据和跨论文联系。
 
-第三层是 library memory，保存在文献库根目录的 `_memory/` 中。它给 agent 一个全局视角：这个库里有哪些研究方向、哪些 collection 彼此相关、哪些论文构成了重要线索。
+第三层是 library 记忆，保存在文献库根目录的 `_memory/` 中。它给 agent 一个全局视角：这个库里有哪些研究方向、哪些 collection 彼此相关、哪些论文构成了重要线索。
 
-这和一次性的聊天摘要不同。Memory 文件是持久化的研究资产。Agent 之后可以重新读取这些记忆，沿着 source block 追溯论据，并在已有研究上下文上继续工作，而不是每次都从 PDF 开始重新读一遍。
+这和一次性的聊天摘要不同。Memory 文件是持久化的研究资产。Agent 之后可以重新读取这些记忆，沿着来源文本块追溯论据，并在已有研究上下文上继续工作，而不是每次都从 PDF 开始重新读一遍。
 
 ## 当前状态
 
@@ -72,37 +72,46 @@ paper bundle = PDF + Markdown + images + YAML metadata + JSON state + AI outputs
 
 ## 安装
 
-从仓库进行开发或本地使用：
+推荐使用 `pipx` 安装给普通用户使用：
+
+```bash
+brew install pipx
+pipx ensurepath
+pipx install "git+https://github.com/lin-qian123/paper-cli.git"
+paper --help
+```
+
+`pipx` 会为 `paper-cli` 创建隔离的 Python 环境，并把 `paper` 命令暴露到 shell 的 `PATH` 上。如果执行 `pipx ensurepath` 后暂时找不到 `paper`，重启终端，或按照 `pipx` 输出的提示更新 shell 配置。
+
+如果你已经克隆了源码仓库，也可以从本地源码安装：
 
 ```bash
 git clone git@github.com:lin-qian123/paper-cli.git
 cd paper-cli
-uv run paper --help
-```
-
-Editable install：
-
-```bash
-python3 -m pip install -e ".[dev]"
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e .
 paper --help
 ```
+
+安装好以后，正常使用时都直接写 `paper ...`。
 
 要求：
 
 - Python 3.11+
-- 推荐使用 `uv` 进行开发和运行
+- 推荐使用 `pipx` 进行用户安装
 - 使用 MinerU 云端转换时需要 `MINERU_API_KEY`
-- 使用 AI repair、summary extraction 和 memory build 时需要兼容 OpenAI 接口的 AI 服务
+- 使用 AI 修复、摘要抽取和记忆构建时需要兼容 OpenAI 接口的 AI 服务
 
 ## 快速开始
 
 ```bash
-uv run paper init /path/to/paper-library
-uv run paper --library /path/to/paper-library import /path/to/pdfs --collection "plasma/qed" --json
-uv run paper --library /path/to/paper-library convert --pending --dry-run --json
-uv run paper --library /path/to/paper-library convert --pending --converter mineru-api-batch --json
-uv run paper --library /path/to/paper-library doctor --strict --json
-uv run paper --library /path/to/paper-library list --json
+paper init /path/to/paper-library
+paper --library /path/to/paper-library import /path/to/pdfs --collection "plasma/qed" --json
+paper --library /path/to/paper-library convert --pending --dry-run --json
+paper --library /path/to/paper-library convert --pending --converter mineru-api-batch --json
+paper --library /path/to/paper-library doctor --strict --json
+paper --library /path/to/paper-library list --json
 ```
 
 默认云端后端是单文件 `mineru-api`。对于更大的文献库，建议使用 `mineru-api-batch`。
@@ -159,7 +168,7 @@ paper doctor --strict
 云端批量转换：
 
 ```bash
-uv run paper --library /path/to/paper-library convert \
+paper --library /path/to/paper-library convert \
   --pending \
   --converter mineru-api-batch \
   --batch-size 20 \
@@ -178,7 +187,7 @@ uv run paper --library /path/to/paper-library convert \
 长 PDF 拆分默认每部分 195 页，为 MinerU API 的 200 页服务上限预留冗余：
 
 ```bash
-uv run paper --library /path/to/paper-library convert \
+paper --library /path/to/paper-library convert \
   --pending \
   --converter mineru-api-batch \
   --max-pages-per-part 195 \
@@ -201,7 +210,7 @@ conversion.json
 本地 MinerU 转换：
 
 ```bash
-uv run paper --library /path/to/paper-library convert \
+paper --library /path/to/paper-library convert \
   --pending \
   --converter mineru-local \
   --local-backend pipeline \
@@ -212,19 +221,19 @@ uv run paper --library /path/to/paper-library convert \
 测试和 dry run 使用的 fixture 转换：
 
 ```bash
-uv run paper --library /tmp/lib convert \
+paper --library /tmp/lib convert \
   --pending \
   --converter local-fixture \
   --fixture-output /tmp/mineru-fixture \
   --json
 ```
 
-## AI Repair
+## AI 修复
 
 ```bash
-uv run paper --library /path/to/paper-library repair --target metadata --dry-run --json
-uv run paper --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
-uv run paper --library /path/to/paper-library repair --json
+paper --library /path/to/paper-library repair --target metadata --dry-run --json
+paper --library /path/to/paper-library repair --target markdown --paper sha256:abc --limit 1 --json
+paper --library /path/to/paper-library repair --json
 ```
 
 `paper repair` 默认使用 `--target all`，也就是同时检查元数据和 Markdown。
@@ -239,12 +248,12 @@ uv run paper --library /path/to/paper-library repair --json
 
 高风险科学内容、公式、表格、参考文献和长篇不确定 OCR 文本只会被记录为 warning，不会被自动改写。
 
-## Summary Extraction
+## 摘要抽取
 
 ```bash
-uv run paper --library /path/to/paper-library extract summary --dry-run --json
-uv run paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
-uv run paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
+paper --library /path/to/paper-library extract summary --dry-run --json
+paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
+paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
 `paper extract summary` 读取已转换的 bundle，并写入：
@@ -257,12 +266,12 @@ extracts/summary/source-map.json
 
 它不会修改原始 PDF、`paper.md`、`paper.yaml` 或 `repair.json`。来源追踪信息会通过文本块 ID、行号范围、文本 hash、章节路径、章节对应的文本块 ID 和图谱来源文本块 ID 保留下来。目标不是生成一次性 abstract，而是创建一个结构化、可溯源、可被后续 agent 复用的阅读层。
 
-## Memory Build
+## 记忆构建
 
 ```bash
-uv run paper --library /path/to/paper-library memory build --dry-run --json
-uv run paper --library /path/to/paper-library memory build --collection plasma/qed --json
-uv run paper --library /path/to/paper-library memory build --force --json
+paper --library /path/to/paper-library memory build --dry-run --json
+paper --library /path/to/paper-library memory build --collection plasma/qed --json
+paper --library /path/to/paper-library memory build --force --json
 ```
 
 `paper memory build` 只使用已经生成的摘要输出。它会把有来源依据的单篇论文摘要，进一步提炼成 collection 级和 library 级 memory，供 agent 跨会话复用。它写入：
@@ -276,7 +285,7 @@ _memory/library-memory.md
 _memory/collection-index.json
 ```
 
-改变文献库的命令会把相关 memory 标记为过期；成功的 summary extraction 会自动刷新受影响的 collection 和 library memory。这让 agent 拥有一张持久的文献库地图：不只是文件在哪里，还包括论文讲了什么、collection 之间如何关联、哪些原文证据支撑了这些判断。
+改变文献库的命令会把相关 memory 标记为过期；成功的摘要抽取会自动刷新受影响的 collection 和 library 记忆。这让 agent 拥有一张持久的文献库地图：不只是文件在哪里，还包括论文讲了什么、collection 之间如何关联、哪些原文证据支撑了这些判断。
 
 ## 文献库结构
 
@@ -337,7 +346,7 @@ paper-library/
 只有在你选择需要外部服务的命令时，才会调用外部服务：
 
 - MinerU 云端转换会上传 PDF 或拆分后的 PDF parts 到 MinerU。
-- AI repair、summary extraction 和 memory build 会把有界文本/证据包发送给配置好的 AI 服务。
+- AI 修复、摘要抽取和记忆构建会把有界文本/证据包发送给配置好的 AI 服务。
 
 如果你不希望外部服务接收敏感 PDF 内容，不要对这些 PDF 使用云端转换或 AI 命令。
 
@@ -349,7 +358,7 @@ paper-library/
 - `uv run --extra dev ruff check src tests`
 - 包含 519 篇 PDF 的 QED corpus `mineru-api-batch` 验证
 - 针对 242、270、226 页 PDF 的长 PDF 拆分验证
-- AI repair、summary extraction 和 memory build 的真实服务烟测
+- AI 修复、摘要抽取和记忆构建的真实服务烟测
 
 最新发布细节见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -373,13 +382,21 @@ paper-library/
 ## 开发
 
 ```bash
+git clone git@github.com:lin-qian123/paper-cli.git
+cd paper-cli
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e ".[dev]"
+paper --help
 uv run --extra dev pytest -q
 uv run --extra dev ruff check src tests
 make verify
 ```
 
+`uv run ...` 是在源码仓库里开发时使用的便利方式。面向使用者的命令示例都使用安装后的 `paper` 命令。
+
 本地测试文献库可以放在 `paper-libraries/` 下；这个目录已被 git 忽略，因为其中可能包含复制的 PDF 和生成的 MinerU 输出。
 
-## License
+## 许可证
 
-MIT. See [LICENSE](LICENSE).
+MIT。见 [LICENSE](LICENSE)。
