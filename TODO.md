@@ -105,6 +105,13 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-06-09 README positioning update:
+  - Reworked the README opening around the project's agent-native positioning: PDFs are layout documents, while MinerU Markdown, images, YAML metadata, JSON state, summaries, and memory files form the agent-readable working surface.
+  - Added a `Why paper-cli?` section explaining why traditional human-facing literature managers are awkward for agents without criticizing their citation/reference-management role.
+  - Added a comparison table across Zotero/reference managers, Papis-like CLI libraries, PDF/OCR tools, Paper QA/RAG tools, and `paper-cli`.
+  - Expanded the layered-memory explanation to emphasize per-paper summaries, collection memory, library memory, source traceability, stale tracking, and persistent agent reuse.
+  - Documentation-only change; verification not run.
+
 - 2026-06-08 release preparation docs:
   - Reworked `README.md` from a progress-oriented project note into a release-oriented user entry point with install, quick start, configuration, command families, privacy notes, validation evidence, and links to contract docs.
   - Added `LICENSE` with MIT licensing, `CHANGELOG.md` with the initial `0.1.0` release notes, `SECURITY.md`, and `CONTRIBUTING.md`.

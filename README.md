@@ -1,8 +1,54 @@
 # paper-cli
 
-`paper-cli` is a local-first, agent-native literature management CLI.
+> Turn PDF piles into agent-readable research libraries.
 
-It turns PDF collections into structured paper bundles that AI agents can inspect reliably: copied PDFs, MinerU Markdown, extracted images, metadata, conversion state, indexes, repair records, summaries, and library memory all live in explicit files on disk.
+PDFs are where papers live.
+Markdown is where agents can actually work.
+
+`paper-cli` is a local-first, agent-native literature management CLI. It turns local paper collections into durable, inspectable bundles: copied PDFs, MinerU Markdown, extracted images, YAML metadata, JSON state, AI repair records, source-traceable summaries, and layered library memory all live as explicit files on disk.
+
+## Why paper-cli?
+
+Most literature managers are designed for people.
+
+That is the right design for collecting references, reading papers, adding tags, syncing attachments, and producing citations. But an AI agent sees a traditional PDF library very differently:
+
+- A PDF is a layout document, not an agent-native reading surface.
+- Agents usually need ad-hoc Python tools, PDF parsers, OCR scripts, or custom skills before they can inspect the actual paper content.
+- GUI-first managers often keep important state behind application databases, attachment conventions, or plugin-specific storage.
+- Conversion outputs, images, metadata, repair decisions, summaries, and indexes are rarely exposed together as one stable filesystem contract.
+
+`paper-cli` takes a different route: every paper becomes a self-contained directory that an agent can read, check, repair, summarize, and remember without reverse-engineering an application backend.
+
+## What makes it different?
+
+`paper-cli` is not trying to replace Zotero, Papis, OCR engines, or PaperQA-style tools. Those projects solve important problems. `paper-cli` focuses on the layer they usually do not make explicit: a durable local paper substrate for AI agents.
+
+| Tool type | Human-facing library | Agent-readable text | Explicit filesystem contract | AI repair / extraction state | Best role |
+| --- | --- | --- | --- | --- | --- |
+| Zotero / reference managers | Excellent | Limited | Mostly app-managed | No | Collecting, citing, and organizing references |
+| Papis-like CLI libraries | Good | Partial | File-oriented | No | Lightweight human-controlled paper collections |
+| PDF parsers / OCR tools | No | Partial | Usually per-run outputs | No | Converting individual PDFs |
+| Paper QA / RAG tools | Partial | Internalized | Often index-managed | Partial | Asking questions over documents |
+| `paper-cli` | Useful, but secondary | First-class | Yes | Yes | Building durable paper bundles for agents |
+
+The project is built around one practical idea: the paper bundle is the API.
+
+```text
+paper bundle = PDF + Markdown + images + YAML metadata + JSON state + AI outputs
+```
+
+That means an agent does not need to guess where the paper is, where the figures are, whether conversion failed, which blocks were repaired, what summary was produced, or whether collection memory is stale. The evidence is on disk.
+
+## Layered Agent Memory
+
+`paper-cli` does more than convert PDFs into Markdown. It can turn converted papers into durable memory for future agent work:
+
+1. Per-paper summaries live under `extracts/summary/` with source maps, block IDs, line ranges, text hashes, section paths, and graph source blocks.
+2. Collection memory lives under each collection's `_memory/` directory and distills the main themes, methods, evidence, and cross-paper connections of that collection.
+3. Library memory lives under the library root `_memory/` directory and gives agents a persistent overview of what the whole paper library contains.
+
+This is intentionally different from a one-off chat summary. The memory files are persistent artifacts. Agents can come back later, inspect what was extracted, trace claims back to source blocks, and build new work on top of a stable research memory instead of rereading every PDF from scratch.
 
 ## Status
 
@@ -205,7 +251,7 @@ extracts/summary/summary.md
 extracts/summary/source-map.json
 ```
 
-It does not modify source PDFs, `paper.md`, `paper.yaml`, or `repair.json`. Source traceability is preserved with block IDs, line ranges, text hashes, section paths, section block IDs, and graph source block IDs.
+It does not modify source PDFs, `paper.md`, `paper.yaml`, or `repair.json`. Source traceability is preserved with block IDs, line ranges, text hashes, section paths, section block IDs, and graph source block IDs. The goal is not to produce a disposable abstract; it is to create a structured, source-grounded reading layer that later agents can inspect and reuse.
 
 ## Memory Build
 
@@ -215,7 +261,7 @@ uv run paper --library /path/to/paper-library memory build --collection plasma/q
 uv run paper --library /path/to/paper-library memory build --force --json
 ```
 
-`paper memory build` consumes existing summary outputs only. It writes:
+`paper memory build` consumes existing summary outputs only. It turns source-grounded per-paper summaries into collection-level and library-level memory that agents can reuse across sessions. It writes:
 
 ```text
 collections/<collection>/_memory/collection-memory.json
@@ -226,7 +272,7 @@ _memory/library-memory.md
 _memory/collection-index.json
 ```
 
-Library-changing commands mark memory stale, and successful summary extraction refreshes affected collection and library memory automatically.
+Library-changing commands mark memory stale, and successful summary extraction refreshes affected collection and library memory automatically. This gives agents a durable map of the library: not just where files are, but what the papers are about, how collections relate, and which sources support those claims.
 
 ## Library Layout
 
