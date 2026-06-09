@@ -2,29 +2,29 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-> 把堆积如山的 PDF，变成 AI agent 可以直接使用的研究型文献库。
+> 把堆在文件夹里的 PDF，整理成 AI agent 真正读得懂、用得上、记得住的研究型文献库。
 
-PDF 是论文存在的地方。
-Markdown 才是 agent 真正能够工作的地方。
+PDF 很适合承载论文，却并不适合让 agent 直接工作。
+对 agent 来说，更自然的入口是 Markdown、图片、结构化元数据、明确的状态文件，以及可以反复读取的长期记忆。
 
-`paper-cli` 是一个 local-first、agent-native 的文献管理 CLI。它会把本地论文集合转换成稳定、可检查、可追踪的论文 bundle：原始 PDF、MinerU Markdown、图片、YAML 元数据、JSON 状态、AI 修复记录、可溯源摘要和分层文献记忆，都会以明确的文件形式保存在磁盘上。
+`paper-cli` 正是为这件事而生的：它把本地论文集合转换成一个个稳定、可检查、可追踪的 paper bundle。每篇论文的原始 PDF、MinerU Markdown、图片、YAML 元数据、JSON 状态、AI 修复记录、可溯源摘要和分层记忆，都会清清楚楚地落在磁盘上。
 
 ## 为什么需要 paper-cli？
 
-大多数文献管理工具都是为人设计的。
+大多数文献管理工具，首先是为人设计的。
 
-这对收集文献、阅读 PDF、添加标签、同步附件和生成引用来说非常合适。但对 AI agent 来说，传统 PDF 文献库往往并不好用：
+这没有问题。Zotero 这类工具非常适合收集文献、阅读 PDF、整理标签、同步附件和生成引用。但当使用者变成 AI agent 时，传统 PDF 文献库就会暴露出另一面：
 
 - PDF 是版面文档，不是 agent 原生的阅读文本。
-- Agent 通常需要临时调用 Python 工具、PDF parser、OCR 脚本或专门的 skill，才能真正读取论文内容。
-- GUI 优先的文献管理器往往把重要状态藏在应用数据库、附件目录约定或插件内部。
-- 转换结果、图片、元数据、修复决策、摘要和索引很少作为一个稳定的文件系统契约同时暴露出来。
+- Agent 往往还要临时调用 Python 工具、PDF parser、OCR 脚本或专门的 skill，才能真正读到论文内容。
+- GUI 优先的文献管理器通常把重要状态放在应用数据库、附件目录约定或插件内部。
+- 转换结果、图片、元数据、修复记录、摘要和索引，很少以一个统一、稳定、可检查的文件系统契约同时暴露出来。
 
-`paper-cli` 选择了另一条路线：每篇论文都是一个自包含目录。Agent 可以直接读取、检查、修复、总结和记忆这些目录，而不需要反向理解某个应用的内部后端。
+`paper-cli` 选择了另一条路：让每篇论文都变成一个自包含目录。Agent 不需要猜论文在哪里、图片在哪里、转换是否成功、摘要是否过期，也不需要反向理解某个应用的内部结构。它只需要读取文件系统里明确存在的证据。
 
 ## 它和其他工具有什么不同？
 
-`paper-cli` 不是要替代 Zotero、Papis、OCR 引擎或 PaperQA 类工具。它们各自解决了重要问题。`paper-cli` 关注的是一个经常缺失的层：面向 AI agent 的、本地持久化的论文工作底座。
+`paper-cli` 不是 Zotero 的替代品，也不是另一个通用 OCR 工具或问答系统。它更像是 AI 时代论文工作流中缺失的底座：把 PDF 文献库整理成 agent 可以稳定操作的本地知识资产。
 
 | 工具类型 | 面向人的文献库 | Agent 可读文本 | 明确的文件系统契约 | AI 修复 / 抽取状态 | 最适合承担的角色 |
 | --- | --- | --- | --- | --- | --- |
@@ -32,31 +32,33 @@ Markdown 才是 agent 真正能够工作的地方。
 | Papis 类 CLI 文献库 | 较好 | 部分支持 | 文件化元数据 | 无 | 轻量的人控论文集合管理 |
 | PDF parser / OCR 工具 | 否 | 部分支持 | 通常是单次运行输出 | 无 | 转换单个 PDF |
 | Paper QA / RAG 工具 | 部分支持 | 内部消费 | 通常由索引管理 | 部分支持 | 对文档提问 |
-| `paper-cli` | 可用，但不是核心 | 一等目标 | 是 | 是 | 为 agent 构建持久论文 bundle |
+| `paper-cli` | 可用，但不是核心 | 一等目标 | 是 | 是 | 为 agent 构建持久 paper bundle |
 
-项目的核心思想很简单：
+项目的核心思想很朴素：
 
 ```text
 paper bundle = PDF + Markdown + images + YAML metadata + JSON state + AI outputs
 ```
 
-也就是说，agent 不需要猜论文在哪里、图片在哪里、转换是否失败、哪些块被修复过、摘要是否生成、collection memory 是否过期。这些证据都在磁盘上。
+这个 bundle 就是 API。它让 agent 面对的不是一堆难以解析的 PDF，也不是某个 GUI 应用背后的隐式数据库，而是一套可以直接读取、检查、追踪和复用的研究文件。
 
 ## 分层 Agent Memory
 
-`paper-cli` 不只是把 PDF 转成 Markdown。它还可以把转换后的论文进一步提炼成 agent 可长期复用的持久记忆：
+`paper-cli` 不只负责把 PDF 转成 Markdown。更重要的是，它可以把论文内容进一步提炼成 agent 能长期复用的分层记忆。
 
-1. 单篇论文摘要保存在 `extracts/summary/`，包含 source map、block ID、行号范围、文本 hash、章节路径和 graph source block。
-2. Collection memory 保存在每个 collection 的 `_memory/` 目录中，用来提炼该 collection 的主题、方法、证据和跨论文联系。
-3. Library memory 保存在文献库根目录的 `_memory/` 中，为 agent 提供整个论文库的持久总览。
+第一层是单篇论文摘要，保存在 `extracts/summary/`。它不仅有摘要文本，还保留 source map、block ID、行号范围、文本 hash、章节路径和 graph source block。也就是说，摘要不是凭空生成的，它可以一路追溯回原文中的具体证据块。
 
-这不是一次性聊天摘要。Memory 文件是可持久化、可检查、可追溯的研究资产。Agent 可以在之后的任务中重新读取这些记忆，追溯观点来自哪些 source block，并在稳定的研究上下文上继续工作，而不是每次都从头读取 PDF。
+第二层是 collection memory，保存在每个 collection 的 `_memory/` 目录中。它会提炼这一组论文的核心主题、常见方法、关键证据和跨论文联系。
+
+第三层是 library memory，保存在文献库根目录的 `_memory/` 中。它给 agent 一个全局视角：这个库里有哪些研究方向、哪些 collection 彼此相关、哪些论文构成了重要线索。
+
+这和一次性的聊天摘要不同。Memory 文件是持久化的研究资产。Agent 之后可以重新读取这些记忆，沿着 source block 追溯论据，并在已有研究上下文上继续工作，而不是每次都从 PDF 开始重新读一遍。
 
 ## 当前状态
 
 `paper-cli` 当前处于 `v0.1.0` 初始预览版本。
 
-第一版已经可以用于本地 PDF 文献库和 agent 工作流：
+这个版本已经可以支撑本地 PDF 文献库和 agent 工作流：
 
 - 从本地 PDF 文件或文件夹导入论文，形成自包含 bundle。
 - 通过 MinerU serial API、batch API、本地 CLI 或测试 fixture 后端转换 PDF。

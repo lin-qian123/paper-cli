@@ -105,6 +105,12 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-06-09 Chinese README copy polish:
+  - Reworked `README.zh-CN.md` from a literal translation into a more natural Chinese project homepage while preserving the same technical scope, commands, and file contracts.
+  - Strengthened the opening narrative around PDF-as-container versus Markdown/filesystem-as-agent-working-surface.
+  - Polished the Zotero/reference-manager comparison and layered-memory explanation to make the project positioning more readable and less mechanical.
+  - Documentation-only change; verification not run.
+
 - 2026-06-09 Chinese README addition:
   - Added `README.zh-CN.md` as a Simplified Chinese README following the common GitHub multilingual pattern of keeping English `README.md` as the default entry and linking to a localized README.
   - Added language-switch links at the top of the English README.
