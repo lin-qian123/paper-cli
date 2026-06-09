@@ -105,6 +105,12 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-06-09 Chinese README addition:
+  - Added `README.zh-CN.md` as a Simplified Chinese README following the common GitHub multilingual pattern of keeping English `README.md` as the default entry and linking to a localized README.
+  - Added language-switch links at the top of the English README.
+  - The Chinese README mirrors the current project positioning, agent-native comparison, layered memory explanation, command examples, library layout, validation notes, and documentation links.
+  - Documentation-only change; verification not run.
+
 - 2026-06-09 README positioning update:
   - Reworked the README opening around the project's agent-native positioning: PDFs are layout documents, while MinerU Markdown, images, YAML metadata, JSON state, summaries, and memory files form the agent-readable working surface.
   - Added a `Why paper-cli?` section explaining why traditional human-facing literature managers are awkward for agents without criticizing their citation/reference-management role.

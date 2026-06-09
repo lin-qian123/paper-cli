@@ -1,5 +1,7 @@
 # paper-cli
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 > Turn PDF piles into agent-readable research libraries.
 
 PDFs are where papers live.
