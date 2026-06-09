@@ -105,6 +105,11 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-06-09 Chinese README translationese cleanup:
+  - Replaced awkward literal phrases in `README.zh-CN.md`, including table wording such as "内部消费", with clearer Chinese descriptions.
+  - Localized provider/configuration/validation wording while keeping command names, file paths, and technical terms stable where useful.
+  - Documentation-only change; verification not run.
+
 - 2026-06-09 Chinese README copy polish:
   - Reworked `README.zh-CN.md` from a literal translation into a more natural Chinese project homepage while preserving the same technical scope, commands, and file contracts.
   - Strengthened the opening narrative around PDF-as-container versus Markdown/filesystem-as-agent-working-surface.

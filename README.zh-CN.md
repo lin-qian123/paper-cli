@@ -26,12 +26,12 @@ PDF 很适合承载论文，却并不适合让 agent 直接工作。
 
 `paper-cli` 不是 Zotero 的替代品，也不是另一个通用 OCR 工具或问答系统。它更像是 AI 时代论文工作流中缺失的底座：把 PDF 文献库整理成 agent 可以稳定操作的本地知识资产。
 
-| 工具类型 | 面向人的文献库 | Agent 可读文本 | 明确的文件系统契约 | AI 修复 / 抽取状态 | 最适合承担的角色 |
+| 工具类型 | 面向人的文献库 | Agent 可读文本 | 明确的文件系统结构 | AI 修复 / 抽取记录 | 最适合承担的角色 |
 | --- | --- | --- | --- | --- | --- |
 | Zotero / 文献管理器 | 很强 | 有限 | 多数由应用管理 | 无 | 收集、引用和组织参考文献 |
 | Papis 类 CLI 文献库 | 较好 | 部分支持 | 文件化元数据 | 无 | 轻量的人控论文集合管理 |
 | PDF parser / OCR 工具 | 否 | 部分支持 | 通常是单次运行输出 | 无 | 转换单个 PDF |
-| Paper QA / RAG 工具 | 部分支持 | 内部消费 | 通常由索引管理 | 部分支持 | 对文档提问 |
+| Paper QA / RAG 工具 | 部分支持 | 主要在工具内部使用 | 通常由索引管理 | 部分支持 | 对文档提问 |
 | `paper-cli` | 可用，但不是核心 | 一等目标 | 是 | 是 | 为 agent 构建持久 paper bundle |
 
 项目的核心思想很朴素：
@@ -46,7 +46,7 @@ paper bundle = PDF + Markdown + images + YAML metadata + JSON state + AI outputs
 
 `paper-cli` 不只负责把 PDF 转成 Markdown。更重要的是，它可以把论文内容进一步提炼成 agent 能长期复用的分层记忆。
 
-第一层是单篇论文摘要，保存在 `extracts/summary/`。它不仅有摘要文本，还保留 source map、block ID、行号范围、文本 hash、章节路径和 graph source block。也就是说，摘要不是凭空生成的，它可以一路追溯回原文中的具体证据块。
+第一层是单篇论文摘要，保存在 `extracts/summary/`。它不仅有摘要文本，还保留来源映射、文本块 ID、行号范围、文本 hash、章节路径和图谱来源文本块。也就是说，摘要不是凭空生成的，它可以一路追溯回原文里的具体证据块。
 
 第二层是 collection memory，保存在每个 collection 的 `_memory/` 目录中。它会提炼这一组论文的核心主题、常见方法、关键证据和跨论文联系。
 
@@ -61,12 +61,12 @@ paper bundle = PDF + Markdown + images + YAML metadata + JSON state + AI outputs
 这个版本已经可以支撑本地 PDF 文献库和 agent 工作流：
 
 - 从本地 PDF 文件或文件夹导入论文，形成自包含 bundle。
-- 通过 MinerU serial API、batch API、本地 CLI 或测试 fixture 后端转换 PDF。
+- 通过 MinerU 单文件 API、批量 API、本地 CLI 或测试用 fixture 后端转换 PDF。
 - 保留 `original.pdf`、`paper.md`、`images/`、`paper.yaml`、`conversion.json` 和索引。
 - 使用 `paper doctor` 做结构检查，使用 `paper doctor --strict` 做更严格的批量审计检查。
-- 使用 OpenAI-compatible AI provider 修复元数据和低风险 Markdown 抽取缺陷。
+- 使用兼容 OpenAI 接口的 AI 服务修复元数据和低风险 Markdown 抽取缺陷。
 - 抽取带 block、section、graph 和 source-map 溯源的论文骨架摘要。
-- 从现有摘要构建 collection-level 和 library-level 的 agent memory。
+- 从现有摘要构建 collection 级和 library 级的 agent memory。
 
 它还不是一个完整的文献管理器。Zotero、BibTeX/CSL JSON、全文搜索和 review queue 等能力会放在后续阶段。
 
@@ -91,8 +91,8 @@ paper --help
 
 - Python 3.11+
 - 推荐使用 `uv` 进行开发和运行
-- 使用 MinerU cloud conversion 时需要 `MINERU_API_KEY`
-- 使用 AI repair、summary extraction 和 memory build 时需要 OpenAI-compatible provider
+- 使用 MinerU 云端转换时需要 `MINERU_API_KEY`
+- 使用 AI repair、summary extraction 和 memory build 时需要兼容 OpenAI 接口的 AI 服务
 
 ## 快速开始
 
@@ -105,7 +105,7 @@ uv run paper --library /path/to/paper-library doctor --strict --json
 uv run paper --library /path/to/paper-library list --json
 ```
 
-默认云端后端是 serial `mineru-api`。对于更大的文献库，建议使用 `mineru-api-batch`。
+默认云端后端是单文件 `mineru-api`。对于更大的文献库，建议使用 `mineru-api-batch`。
 
 ## 配置
 
@@ -117,7 +117,7 @@ export MINERU_API_BASE="https://mineru.net/api/v4"  # optional
 export MINERU_MAX_WAIT_SECONDS=7200                 # optional
 ```
 
-AI 命令读取 OpenAI-compatible chat completions provider：
+AI 命令读取兼容 OpenAI Chat Completions 接口的服务配置：
 
 ```bash
 export PAPER_AI_BASE_URL="https://api.openai.com/v1"
@@ -134,7 +134,7 @@ mineru:
   local_jobs: auto
 ```
 
-Secrets 应保存在环境变量或未提交的本地配置文件中。
+密钥应保存在环境变量或未提交的本地配置文件中。
 
 ## 核心命令
 
@@ -156,7 +156,7 @@ paper doctor --strict
 
 ## PDF 转换
 
-云端 batch conversion：
+云端批量转换：
 
 ```bash
 uv run paper --library /path/to/paper-library convert \
@@ -169,10 +169,10 @@ uv run paper --library /path/to/paper-library convert \
 
 `mineru-api-batch` 会：
 
-- 将 upload-link request 控制在 50 个文件以内；
+- 将上传链接请求控制在 50 个文件以内；
 - 用有界并发上传和下载；
-- 在 `conversion.json` 中记录 `batch_id`、`data_id` 和 remote state；
-- 尽可能恢复已有 running batch；
+- 在 `conversion.json` 中记录 `batch_id`、`data_id` 和远端状态；
+- 尽可能恢复已有的运行中批次；
 - 将超过 MinerU API 页数限制的 PDF 拆分成较小 PDF 后上传。
 
 长 PDF 拆分默认每部分 195 页，为 MinerU API 的 200 页服务上限预留冗余：
@@ -198,7 +198,7 @@ conversion.json
 
 `conversion.json.raw.split_parts` 会记录页码范围和每个 part 的远端诊断信息。拆分转换会保留已有 `paper.yaml` 元数据，把不确定的标题/作者清理留给 AI metadata repair。
 
-本地 MinerU conversion：
+本地 MinerU 转换：
 
 ```bash
 uv run paper --library /path/to/paper-library convert \
@@ -209,7 +209,7 @@ uv run paper --library /path/to/paper-library convert \
   --json
 ```
 
-测试和 dry run 使用的 fixture conversion：
+测试和 dry run 使用的 fixture 转换：
 
 ```bash
 uv run paper --library /tmp/lib convert \
@@ -227,7 +227,7 @@ uv run paper --library /path/to/paper-library repair --target markdown --paper s
 uv run paper --library /path/to/paper-library repair --json
 ```
 
-`paper repair` 默认使用 `--target all`。
+`paper repair` 默认使用 `--target all`，也就是同时检查元数据和 Markdown。
 
 它可以：
 
@@ -237,7 +237,7 @@ uv run paper --library /path/to/paper-library repair --json
 - 写入前创建 bundle-local backup；
 - 将最近一次运行记录到 `repair.json`。
 
-高风险科学内容、公式、表格、参考文献和长篇不确定 OCR prose 只会被记录为 warning，不会被自动改写。
+高风险科学内容、公式、表格、参考文献和长篇不确定 OCR 文本只会被记录为 warning，不会被自动改写。
 
 ## Summary Extraction
 
@@ -247,7 +247,7 @@ uv run paper --library /path/to/paper-library extract summary --paper-workers 16
 uv run paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
-`paper extract summary` 读取已转换 bundle，并写入：
+`paper extract summary` 读取已转换的 bundle，并写入：
 
 ```text
 extracts/summary/summary.json
@@ -255,7 +255,7 @@ extracts/summary/summary.md
 extracts/summary/source-map.json
 ```
 
-它不会修改 source PDF、`paper.md`、`paper.yaml` 或 `repair.json`。Source traceability 通过 block ID、行号范围、文本 hash、章节路径、section block ID 和 graph source block ID 保留下来。目标不是生成一次性 abstract，而是创建一个结构化、可溯源、可被后续 agent 复用的阅读层。
+它不会修改原始 PDF、`paper.md`、`paper.yaml` 或 `repair.json`。来源追踪信息会通过文本块 ID、行号范围、文本 hash、章节路径、章节对应的文本块 ID 和图谱来源文本块 ID 保留下来。目标不是生成一次性 abstract，而是创建一个结构化、可溯源、可被后续 agent 复用的阅读层。
 
 ## Memory Build
 
@@ -265,7 +265,7 @@ uv run paper --library /path/to/paper-library memory build --collection plasma/q
 uv run paper --library /path/to/paper-library memory build --force --json
 ```
 
-`paper memory build` 只消费已有 summary outputs。它会把 source-grounded per-paper summary 转换成 collection-level 和 library-level memory，供 agent 跨会话复用。它写入：
+`paper memory build` 只使用已经生成的摘要输出。它会把有来源依据的单篇论文摘要，进一步提炼成 collection 级和 library 级 memory，供 agent 跨会话复用。它写入：
 
 ```text
 collections/<collection>/_memory/collection-memory.json
@@ -276,7 +276,7 @@ _memory/library-memory.md
 _memory/collection-index.json
 ```
 
-改变文献库的命令会标记 memory stale；成功的 summary extraction 会自动刷新受影响的 collection 和 library memory。这让 agent 拥有一张持久的文献库地图：不只是文件在哪里，还包括论文讲了什么、collection 之间如何关联、哪些 source 支撑了这些判断。
+改变文献库的命令会把相关 memory 标记为过期；成功的 summary extraction 会自动刷新受影响的 collection 和 library memory。这让 agent 拥有一张持久的文献库地图：不只是文件在哪里，还包括论文讲了什么、collection 之间如何关联、哪些原文证据支撑了这些判断。
 
 ## 文献库结构
 
@@ -332,14 +332,14 @@ paper-library/
 
 ## 数据与隐私
 
-`paper-cli` 是 local-first 的：bundle metadata、转换后的 Markdown、图片、repair records、summaries 和 indexes 都会写入你选择的本地文献库目录。
+`paper-cli` 是 local-first 的：bundle 元数据、转换后的 Markdown、图片、修复记录、摘要和索引都会写入你选择的本地文献库目录。
 
 只有在你选择需要外部服务的命令时，才会调用外部服务：
 
-- MinerU cloud conversion 会上传 PDF 或拆分后的 PDF parts 到 MinerU。
-- AI repair、summary extraction 和 memory build 会把有界文本/证据包发送给配置的 OpenAI-compatible provider。
+- MinerU 云端转换会上传 PDF 或拆分后的 PDF parts 到 MinerU。
+- AI repair、summary extraction 和 memory build 会把有界文本/证据包发送给配置好的 AI 服务。
 
-如果你不希望 provider 接收敏感 PDF 内容，不要对这些 PDF 使用 cloud conversion 或 AI commands。
+如果你不希望外部服务接收敏感 PDF 内容，不要对这些 PDF 使用云端转换或 AI 命令。
 
 ## 验证
 
@@ -347,15 +347,15 @@ paper-library/
 
 - `uv run --extra dev pytest -q`
 - `uv run --extra dev ruff check src tests`
-- QED corpus `mineru-api-batch` validation with 519 PDFs
+- 包含 519 篇 PDF 的 QED corpus `mineru-api-batch` 验证
 - 针对 242、270、226 页 PDF 的长 PDF 拆分验证
-- AI repair、summary extraction 和 memory build 的 real-provider smoke tests
+- AI repair、summary extraction 和 memory build 的真实服务烟测
 
 最新发布细节见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 文档
 
-Contracts：
+契约文档：
 
 - [paper-yaml.md](docs/contracts/paper-yaml.md)
 - [conversion-json.md](docs/contracts/conversion-json.md)
@@ -363,7 +363,7 @@ Contracts：
 - [extract-summary-output.md](docs/contracts/extract-summary-output.md)
 - [source-adapters.md](docs/contracts/source-adapters.md)
 
-Smoke tests：
+烟测清单：
 
 - [mineru.md](docs/smoke-tests/mineru.md)
 - [ai-repair.md](docs/smoke-tests/ai-repair.md)
