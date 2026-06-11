@@ -81,16 +81,14 @@ pipx install "git+https://github.com/lin-qian123/paper-cli.git"
 paper --help
 ```
 
-`pipx` 会为 `paper-cli` 创建隔离的 Python 环境，并把 `paper` 命令暴露到 shell 的 `PATH` 上。如果执行 `pipx ensurepath` 后暂时找不到 `paper`，重启终端，或按照 `pipx` 输出的提示更新 shell 配置。
+`pipx` 会从 GitHub 安装 `paper-cli`，为它创建隔离的 Python 环境，并把 `paper` 命令暴露到 shell 的 `PATH` 上。如果执行 `pipx ensurepath` 后暂时找不到 `paper`，重启终端，或按照 `pipx` 输出的提示更新 shell 配置。
 
-如果你已经克隆了源码仓库，也可以从本地源码安装：
+也可以在虚拟环境里用 `pip` 安装：
 
 ```bash
-git clone git@github.com:lin-qian123/paper-cli.git
-cd paper-cli
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install -e .
+python3 -m pip install "git+https://github.com/lin-qian123/paper-cli.git"
 paper --help
 ```
 

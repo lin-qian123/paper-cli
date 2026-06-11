@@ -79,16 +79,14 @@ pipx install "git+https://github.com/lin-qian123/paper-cli.git"
 paper --help
 ```
 
-`pipx` installs `paper-cli` into an isolated Python environment and exposes the `paper` command on your shell `PATH`. If `paper` is not found immediately after `pipx ensurepath`, restart your terminal or follow the shell instruction printed by `pipx`.
+`pipx` installs `paper-cli` from GitHub into an isolated Python environment and exposes the `paper` command on your shell `PATH`. If `paper` is not found immediately after `pipx ensurepath`, restart your terminal or follow the shell instruction printed by `pipx`.
 
-Install from a local source checkout:
+Alternative install with `pip` inside a virtual environment:
 
 ```bash
-git clone git@github.com:lin-qian123/paper-cli.git
-cd paper-cli
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install -e .
+python3 -m pip install "git+https://github.com/lin-qian123/paper-cli.git"
 paper --help
 ```
 
