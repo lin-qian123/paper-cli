@@ -3,6 +3,7 @@ import json
 import zipfile
 
 import pytest
+import yaml
 
 from paper_cli.cli import main
 from paper_cli.convert import convert_pending
@@ -58,6 +59,35 @@ def test_convert_pending_writes_markdown_and_renames(tmp_path):
     renamed = library / "inbox" / "Zhang et al. - 2025 - Better Paper Title"
     assert (renamed / "paper.md").exists()
     assert (renamed / "conversion.json").exists()
+
+
+def test_convert_pending_can_preserve_existing_bundle_name(tmp_path):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Unknown.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fixture = tmp_path / "fixture"
+    fixture.mkdir()
+    (fixture / "paper.md").write_text("# Better Paper Title\n", encoding="utf-8")
+    (fixture / "metadata.json").write_text(
+        '{"title":"Better Paper Title","creators":[{"name":"Zhang"}],"year":2025}',
+        encoding="utf-8",
+    )
+    assert main(["init", str(library)]) == 0
+    assert main(["--library", str(library), "import", str(pdf), "--inbox"]) == 0
+    original = next(path for path in (library / "inbox").iterdir() if path.is_dir())
+    config_path = library / "paper-cli.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config["naming"]["rename_on_convert"] = False
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    assert (
+        main(["--library", str(library), "convert", "--pending", "--fixture-output", str(fixture)])
+        == 0
+    )
+
+    assert original.exists()
+    assert (original / "paper.md").exists()
+    assert read_paper(original).name == original.name
 
 
 def test_convert_pending_strips_private_use_title_glyphs(tmp_path):

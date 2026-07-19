@@ -11,6 +11,7 @@ Local-folder MVP implemented and covered by tests. The first built-in AI repair 
 - [x] Add minimal lint/format tooling.
 - [x] Document `paper.yaml`, `conversion.json`, and CLI JSON output contracts.
 - [x] Add a manual real-MinerU smoke-test checklist.
+- [x] Honor `naming.sanitize.max_length` and `ascii_slug` during import and conversion, and add `naming.rename_on_convert` so stable sync-safe bundle identifiers can survive metadata refreshes.
 - [x] Add implementation plan for engineering milestones 1 and 2.
 - [x] Expand `conversion.json` into a diagnostic record.
 - [x] Append conversion job events to `indexes/jobs.jsonl`.

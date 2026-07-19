@@ -20,6 +20,7 @@ def default_config() -> dict[str, Any]:
         "naming": {
             "template": DEFAULT_NAMING_TEMPLATE,
             "duplicate_strategy": "append-counter",
+            "rename_on_convert": True,
             "sanitize": {
                 "max_length": 180,
                 "ascii_slug": False,

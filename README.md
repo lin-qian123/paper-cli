@@ -139,6 +139,18 @@ mineru:
   local_jobs: auto
 ```
 
+Libraries synchronized through services with strict filename or path limits can use sync-safe naming:
+
+```yaml
+naming:
+  rename_on_convert: false
+  sanitize:
+    max_length: 86
+    ascii_slug: true
+```
+
+`ascii_slug` applies to newly imported bundle names. Set `rename_on_convert: false` when an existing library already has stable directory identifiers that conversion must preserve.
+
 Secrets should stay in environment variables or uncommitted local config files.
 
 ## Core Commands

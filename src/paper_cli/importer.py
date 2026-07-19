@@ -8,7 +8,7 @@ from .fs import collection_root, copy_file, sha256_file
 from .indexes import rebuild_papers_index
 from .metadata import fast_metadata_details
 from .models import PaperRecord, read_paper, write_paper
-from .naming import render_name, resolve_duplicate_name, sanitize_name
+from .naming import render_name, resolve_duplicate_name, sanitize_name_from_config
 
 
 def paper_id_for_file(path: Path) -> str:
@@ -42,7 +42,10 @@ def import_pdf(
     config = load_config(library_dir)
     metadata, metadata_sources, metadata_confidence = fast_metadata_details(pdf_path)
     template = config.get("naming", {}).get("template", "")
-    name = sanitize_name(render_name(template, metadata) or pdf_path.stem)
+    name = sanitize_name_from_config(
+        render_name(template, metadata) or pdf_path.stem,
+        config,
+    )
 
     root = collection_root(library_dir, collection, inbox)
     root.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,7 @@ from .converters.base import BatchConversionItem, BatchConversionResult, Convers
 from .converters.mineru_metadata import extract_mineru_metadata
 from .indexes import append_job, find_paper_dirs, rebuild_papers_index
 from .models import PaperRecord, read_paper, utc_now_iso, write_paper
-from .naming import render_name, resolve_duplicate_name, sanitize_name
+from .naming import render_name, resolve_duplicate_name, sanitize_name_from_config
 
 
 def extract_metadata_from_markdown(markdown: str) -> dict:
@@ -122,8 +122,16 @@ def maybe_rename_bundle(library_dir: Path, bundle_dir: Path, record: PaperRecord
         return bundle_dir
 
     config = load_config(library_dir)
+    if not config.get("naming", {}).get("rename_on_convert", True):
+        record.name = bundle_dir.name
+        write_paper(bundle_dir, record)
+        return bundle_dir
+
     template = config.get("naming", {}).get("template", "")
-    rendered = sanitize_name(render_name(template, record.metadata) or record.name)
+    rendered = sanitize_name_from_config(
+        render_name(template, record.metadata) or record.name,
+        config,
+    )
     if rendered == bundle_dir.name:
         record.name = rendered
         write_paper(bundle_dir, record)

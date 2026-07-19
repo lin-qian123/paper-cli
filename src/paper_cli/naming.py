@@ -57,15 +57,33 @@ def normalize_spaces(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
-def sanitize_name(value: str, max_length: int = 180) -> str:
+def sanitize_name(
+    value: str,
+    max_length: int = 180,
+    ascii_slug: bool = False,
+) -> str:
     safe = remove_problematic_unicode(value)
-    safe = re.sub(INVALID_FILENAME_CHARS, "-", safe)
-    safe = re.sub(r"[\x00-\x1f]", "", safe)
-    safe = normalize_spaces(safe)
-    safe = safe.strip(" .-_")
+    if ascii_slug:
+        safe = safe.replace("γ", "gamma").replace("Γ", "gamma")
+        safe = unicodedata.normalize("NFKD", safe).encode("ascii", "ignore").decode("ascii")
+        safe = re.sub(r"[^A-Za-z0-9]+", "-", safe).strip("-").lower()
+    else:
+        safe = re.sub(INVALID_FILENAME_CHARS, "-", safe)
+        safe = re.sub(r"[\x00-\x1f]", "", safe)
+        safe = normalize_spaces(safe)
+        safe = safe.strip(" .-_")
     if len(safe) > max_length:
         safe = safe[:max_length].rstrip(" .-_")
     return safe or "untitled"
+
+
+def sanitize_name_from_config(value: str, config: dict) -> str:
+    sanitize = config.get("naming", {}).get("sanitize", {})
+    return sanitize_name(
+        value,
+        max_length=int(sanitize.get("max_length", 180)),
+        ascii_slug=bool(sanitize.get("ascii_slug", False)),
+    )
 
 
 def resolve_duplicate_name(base_name: str, existing_names: set[str]) -> str:

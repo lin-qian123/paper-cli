@@ -34,3 +34,11 @@ def test_sanitize_collapses_whitespace_and_limits_length():
 
 def test_sanitize_removes_private_use_glyphs():
     assert sanitize_name("Laser pulses \ue907") == "Laser pulses"
+
+
+def test_sanitize_ascii_slug_normalizes_unicode_and_formula_characters():
+    assert sanitize_name(
+        "García γ source: ${}^{99}Mo / test",
+        max_length=32,
+        ascii_slug=True,
+    ) == "garcia-gamma-source-99-mo-test"
