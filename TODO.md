@@ -106,6 +106,13 @@ Status: implementation complete with real large-scale cloud batch validation exe
 
 ## Validation Log
 
+- 2026-07-21 default MinerU batch backend and long-PDF regression:
+  - Changed plain `paper convert --pending` from serial `mineru-api` to `mineru-api-batch`; the legacy serial backend remains available through explicit `--converter mineru-api`.
+  - Confirmed the default batch backend keeps bounded parallelism and the existing 195-page automatic split threshold.
+  - Real validation on the 343-page IAEA report *Radiological Safety Aspects of the Operation of Electron Linear Accelerators*: the serial default failed with the 200-page API limit, while the batch backend split pages 1-195 and 196-343, converted both parts, and merged them into one 859,551-character Markdown bundle.
+  - Added a CLI regression test for the default backend and synchronized the English and Chinese README guidance.
+  - Verification: 144 tests passed with provider environment variables removed from the test process; GitHub commit `1f88958`; pipx reinstall from the GitHub source completed; installed dry-run reports `converter=mineru-api-batch` and `jobs=4`.
+
 - 2026-06-09 user-facing install documentation rewrite:
   - Rewrote the English and Chinese README install sections around user installation instead of developer execution.
   - Added `pipx install "git+https://github.com/lin-qian123/paper-cli.git"` as the recommended isolated user install path, with `paper ...` as the normal command after installation.
