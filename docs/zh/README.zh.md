@@ -41,7 +41,7 @@ paper init <library-dir>
 paper import <pdf-or-folder> --collection <path>
 paper import <pdf-or-folder> --inbox
 paper convert --pending
-paper convert --pending --converter mineru-api-batch --batch-size 20 --jobs 4
+paper convert --pending --batch-size 20 --jobs 4
 paper convert --pending --converter mineru-local --local-backend pipeline --jobs 2
 paper list
 paper status
@@ -81,7 +81,7 @@ python3 -m paper_cli --library /path/to/paper-library doctor --json
 python3 -m paper_cli --library /path/to/paper-library doctor --strict --json
 ```
 
-真实 MinerU 云端转换从环境变量 `MINERU_API_KEY` 读取 API key。默认 `paper convert --pending` 仍使用串行 `mineru-api` 后端。较大文献库建议使用 `--converter mineru-api-batch`；它会提交 MinerU precise API 批量任务，把单次 upload-link 请求限制在 50 个文件以内，用受限并发上传/下载，在 `conversion.json` 记录 `batch_id` / `data_id`，并在发现已有 running batch 时优先恢复轮询，避免重复提交。`--batch-size` 默认 `20`，云端上传/下载 `--jobs` 默认 `4`。网络请求会自动重试，远端长时间运行任务受 `MINERU_MAX_WAIT_SECONDS` 限制，默认每篇或每批 30 分钟。
+真实 MinerU 云端转换从环境变量 `MINERU_API_KEY` 读取 API key。默认 `paper convert --pending` 使用 `mineru-api-batch` 后端；它会提交 MinerU precise API 批量任务，把单次 upload-link 请求限制在 50 个文件以内，用受限并发上传/下载，在 `conversion.json` 记录 `batch_id` / `data_id`，并在发现已有 running batch 时优先恢复轮询，避免重复提交。超过 MinerU 200 页上限的 PDF 会自动按默认 195 页切分，转换完成后再合并回一个 bundle。`--batch-size` 默认 `20`，云端上传/下载 `--jobs` 默认 `4`。网络请求会自动重试，远端长时间运行任务受 `MINERU_MAX_WAIT_SECONDS` 限制，默认每篇或每批 30 分钟；只有明确需要旧串行路径时才使用 `--converter mineru-api`。
 
 本地 MinerU 转换使用已安装的 `mineru` 可执行文件：
 

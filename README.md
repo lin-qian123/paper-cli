@@ -105,12 +105,12 @@ Requirements:
 paper init /path/to/paper-library
 paper --library /path/to/paper-library import /path/to/pdfs --collection "plasma/qed" --json
 paper --library /path/to/paper-library convert --pending --dry-run --json
-paper --library /path/to/paper-library convert --pending --converter mineru-api-batch --json
+paper --library /path/to/paper-library convert --pending --json
 paper --library /path/to/paper-library doctor --strict --json
 paper --library /path/to/paper-library list --json
 ```
 
-The default cloud backend is serial `mineru-api`. For larger libraries, use `mineru-api-batch`.
+The default cloud backend is `mineru-api-batch`. It provides bounded parallelism and automatically splits PDFs above the MinerU page limit into 195-page parts. Use `--converter mineru-api` only when the legacy serial API path is explicitly required.
 
 ## Configuration
 
@@ -178,7 +178,6 @@ Cloud batch conversion:
 ```bash
 paper --library /path/to/paper-library convert \
   --pending \
-  --converter mineru-api-batch \
   --batch-size 20 \
   --jobs 4 \
   --json
@@ -197,7 +196,6 @@ Long-PDF splitting defaults to 195 pages per part, leaving headroom below MinerU
 ```bash
 paper --library /path/to/paper-library convert \
   --pending \
-  --converter mineru-api-batch \
   --max-pages-per-part 195 \
   --json
 ```

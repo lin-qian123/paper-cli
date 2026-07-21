@@ -90,3 +90,27 @@ def test_convert_dry_run_reports_pending_without_writing(tmp_path, capsys):
     assert payload["converter"] == "mineru-local"
     assert payload["pending_count"] == 1
     assert not (library / "inbox" / "A et al. - 2025 - Pending Paper" / "conversion.json").exists()
+
+
+def test_convert_defaults_to_batch_api_with_long_pdf_splitting(tmp_path, capsys):
+    library = tmp_path / "library"
+    pdf = tmp_path / "Pending Paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    main(["init", str(library)])
+    main(["--library", str(library), "import", str(pdf), "--inbox"])
+
+    assert (
+        main(
+            [
+                "--library",
+                str(library),
+                "convert",
+                "--pending",
+                "--dry-run",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["converter"] == "mineru-api-batch"

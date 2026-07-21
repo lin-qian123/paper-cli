@@ -53,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--converter",
         choices=("mineru-api", "mineru-api-batch", "mineru-local", "local-fixture"),
         default=None,
-        help="conversion backend (default: mineru-api, or local-fixture with --fixture-output)",
+        help="conversion backend (default: mineru-api-batch, or local-fixture with --fixture-output)",
     )
     convert_parser.add_argument("--batch-size", type=int, default=20, help="papers per batch")
     convert_parser.add_argument("--jobs", type=int, default=None, help="backend concurrency override")
@@ -187,7 +187,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "convert":
         if not args.pending:
             parser.error("convert currently requires --pending")
-        converter_name = args.converter or ("local-fixture" if args.fixture_output else "mineru-api")
+        converter_name = args.converter or (
+            "local-fixture" if args.fixture_output else "mineru-api-batch"
+        )
         if args.dry_run:
             payload = _conversion_plan(
                 Path(args.library),
