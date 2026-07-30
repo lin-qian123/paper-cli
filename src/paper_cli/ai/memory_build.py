@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from .providers import AIProvider
 SUMMARY_DIR = Path("extracts") / "summary"
 LIBRARY_MEMORY_DIR = Path("_memory")
 ROOT_COLLECTION_KEY = "__root__"
+RuntimeEventSink = Callable[[str, dict[str, Any]], None]
 
 
 def _sha256_text(text: str) -> str:
@@ -876,6 +878,7 @@ def build_memory_library(
     limit: int | None = None,
     force: bool = False,
     dry_run: bool = False,
+    event_sink: RuntimeEventSink | None = None,
 ) -> dict[str, Any]:
     planned: list[dict[str, Any]] = []
     written: list[dict[str, Any]] = []
@@ -945,6 +948,11 @@ def build_memory_library(
         if provider is None:
             raise ValueError("AI provider is required unless --dry-run is used")
         try:
+            if event_sink:
+                event_sink(
+                    "stage-started",
+                    {"path": str(output_path), "stage": "collection-memory", "count": len(papers)},
+                )
             memory = _build_collection_memory(library_dir, collection_key, papers, skipped_papers, provider)
             output_dir = _collection_output_dir(library_dir, collection_key)
             _write_atomic_json(output_dir / "collection-memory.json", memory)
@@ -961,6 +969,11 @@ def build_memory_library(
                 }
             )
             skipped.extend(skipped_papers)
+            if event_sink:
+                event_sink(
+                    "stage-finished",
+                    {"path": str(output_path), "stage": "collection-memory", "ok": True},
+                )
         except Exception as exc:
             failed.append(
                 {
@@ -970,6 +983,11 @@ def build_memory_library(
                     "error": str(exc),
                 }
             )
+            if event_sink:
+                event_sink(
+                    "stage-failed",
+                    {"path": str(output_path), "stage": "collection-memory", "error": str(exc)},
+                )
 
     collection_memories.extend(
         _load_existing_collection_memories(
@@ -1011,6 +1029,8 @@ def build_memory_library(
         if provider is None:
             raise ValueError("AI provider is required unless --dry-run is used")
         try:
+            if event_sink:
+                event_sink("stage-started", {"path": str(library_output_path), "stage": "library-memory"})
             library_memory = _build_library_memory(library_dir, collection_memories, provider)
             output_dir = library_dir / LIBRARY_MEMORY_DIR
             _write_atomic_json(output_dir / "library-memory.json", library_memory)
@@ -1034,6 +1054,11 @@ def build_memory_library(
                 ],
                 clear_library=True,
             )
+            if event_sink:
+                event_sink(
+                    "stage-finished",
+                    {"path": str(library_output_path), "stage": "library-memory", "ok": True},
+                )
         except Exception as exc:
             failed.append(
                 {
@@ -1042,6 +1067,11 @@ def build_memory_library(
                     "error": str(exc),
                 }
             )
+            if event_sink:
+                event_sink(
+                    "stage-failed",
+                    {"path": str(library_output_path), "stage": "library-memory", "error": str(exc)},
+                )
 
     return {
         "ok": not failed,

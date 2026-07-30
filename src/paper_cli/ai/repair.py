@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -549,6 +550,7 @@ def repair_library(
     paper: str | None = None,
     collection: str | None = None,
     limit: int | None = None,
+    event_sink: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     targets = _expanded_targets(target)
     repaired: list[dict[str, Any]] = []
@@ -560,6 +562,8 @@ def repair_library(
         limit=limit,
     ):
         current_dir = bundle_dir
+        if event_sink:
+            event_sink("paper-started", {"path": str(current_dir), "stage": "repair"})
         bundle_result = BundleRepairResult(path=current_dir, targets=targets)
         timestamp = utc_now_iso()
         try:
@@ -575,6 +579,8 @@ def repair_library(
             bundle_result.path = current_dir
             if dry_run:
                 repaired.append(bundle_result.to_summary())
+                if event_sink:
+                    event_sink("paper-finished", {"path": str(current_dir), "stage": "repair", "ok": True})
                 continue
             if bundle_result.metadata.changed:
                 _backup_file(current_dir, "paper.yaml", timestamp)
@@ -597,8 +603,15 @@ def repair_library(
                 markdown=bundle_result.markdown,
             )
             repaired.append(bundle_result.to_summary())
+            if event_sink:
+                event_sink("paper-finished", {"path": str(current_dir), "stage": "repair", "ok": True})
         except Exception as exc:
             failed.append({"path": str(current_dir), "error": str(exc)})
+            if event_sink:
+                event_sink(
+                    "paper-failed",
+                    {"path": str(current_dir), "stage": "repair", "error": str(exc)},
+                )
     if not dry_run:
         rebuild_papers_index(library_dir)
     return {

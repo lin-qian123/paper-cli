@@ -112,7 +112,7 @@ paper --library /path/to/paper-library doctor --strict --json
 paper --library /path/to/paper-library list --json
 ```
 
-默认云端后端是单文件 `mineru-api`。对于更大的文献库，建议使用 `mineru-api-batch`。
+默认云端后端是 `mineru-api-batch`。它提供有界并行，并会自动把超过 MinerU 页数上限的 PDF 拆成每部分最多 195 页。只有明确需要旧串行 API 路径时才使用 `--converter mineru-api`。
 
 ## 配置
 
@@ -130,7 +130,16 @@ AI 命令读取兼容 OpenAI Chat Completions 接口的服务配置：
 export PAPER_AI_BASE_URL="https://api.openai.com/v1"
 export PAPER_AI_API_KEY="..."
 export PAPER_AI_MODEL="gpt-5.4-mini"
+export PAPER_AI_TIMEOUT_SECONDS=60  # 每次 provider 请求的 wall-clock 硬时限
 ```
+
+在启动昂贵的全库任务前，可在不发送论文正文的情况下检查凭证和连通性：
+
+```bash
+paper --library /path/to/paper-library provider doctor --json
+```
+
+`provider doctor` 使用带鉴权的 `GET /models`，且不会打印 API key。AI 命令支持 `--request-timeout-seconds`；摘要抽取额外支持 `--paper-timeout-seconds` 和 `--max-ai-seconds`。当 provider 请求停滞时，这些上限让命令能以可预期方式失败或继续处理。
 
 本地 MinerU 设置可以写入 `paper-cli.yaml`：
 
@@ -157,9 +166,12 @@ paper inspect <paper-id-or-query>
 paper status
 paper doctor
 paper doctor --strict
+paper provider doctor
 ```
 
 面向 agent 的命令在适合的地方都支持 `--json`，避免 agent 解析自然语言输出。
+
+长时间运行的 `convert`、`repair`、`extract summary` 和 `memory build` 会向 stderr 输出简洁进度，并把不含秘密的 run 事件追加到 `indexes/runs.jsonl`。使用 `--json` 时 stdout 仍只保留最终 JSON 结果。
 
 ## PDF 转换
 
@@ -250,7 +262,7 @@ paper --library /path/to/paper-library repair --json
 
 ```bash
 paper --library /path/to/paper-library extract summary --dry-run --json
-paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
+paper --library /path/to/paper-library extract summary --paper-workers 4 --workers 4 --max-requests 16 --paper-timeout-seconds 900 --max-ai-seconds 7200 --json
 paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
@@ -330,6 +342,7 @@ paper-library/
   indexes/
     papers.jsonl
     jobs.jsonl
+    runs.jsonl
     memory-state.json
   _memory/
     library-memory.json

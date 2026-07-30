@@ -123,6 +123,8 @@ raw/
 {"event":"conversion-finished","at":"2026-05-13T00:01:00+00:00","paper_id":"sha256:...","bundle_path":"inbox/Example","converter":"mineru","attempt":1,"state":"done","ok":true}
 ```
 
+`indexes/runs.jsonl` is a separate append-only operational event log for long-running commands. It deliberately does not share `jobs.jsonl` because strict conversion auditing relies on the latter containing only conversion events. A run event includes a stable `run_id`, command name, elapsed time, and non-secret details such as path, stage, retry attempt, or error category.
+
 For failed conversions, the finish event uses `state: "failed"`, `ok: false`, and includes `error`. Batch conversion events may also include `batch_id`, `data_id`, and `remote_state`.
 
 Future readers should ignore unknown fields.

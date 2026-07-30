@@ -1,9 +1,16 @@
 import json
+import time
 
 import pytest
 import yaml
 
-from paper_cli.ai.providers import OpenAICompatibleProvider, ProviderConfig, load_provider_config
+from paper_cli.ai.providers import (
+    OpenAICompatibleProvider,
+    ProviderConfig,
+    ProviderRequestTimeout,
+    check_provider_health,
+    load_provider_config,
+)
 from paper_cli.cli import main
 from paper_cli.models import PaperRecord, read_paper, write_paper
 
@@ -86,6 +93,10 @@ def test_provider_config_loads_env_and_library_settings(tmp_path, monkeypatch):
     }
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     monkeypatch.setenv("CUSTOM_AI_KEY", "secret")
+    monkeypatch.delenv("PAPER_AI_BASE_URL", raising=False)
+    monkeypatch.delenv("PAPER_AI_MODEL", raising=False)
+    monkeypatch.delenv("PAPER_AI_TEMPERATURE", raising=False)
+    monkeypatch.delenv("PAPER_AI_TIMEOUT_SECONDS", raising=False)
 
     loaded = load_provider_config(library)
 
@@ -123,6 +134,70 @@ def test_openai_compatible_provider_sends_json_request(monkeypatch):
     assert calls[0][1]["headers"]["Authorization"] == "Bearer key"
     assert calls[0][1]["json"]["model"] == "model-a"
     assert calls[0][1]["json"]["response_format"] == {"type": "json_object"}
+
+
+def test_provider_hard_wall_clock_timeout_returns_without_waiting_for_transport(monkeypatch):
+    def slow_post(url, **kwargs):
+        time.sleep(0.2)
+        return FakeResponse(chat_payload({"ok": True}))
+
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", slow_post)
+    provider = OpenAICompatibleProvider(
+        ProviderConfig(
+            base_url="http://example.test/v1",
+            api_key="key",
+            model="model-a",
+            timeout_seconds=0.02,
+        )
+    )
+
+    started = time.monotonic()
+    with pytest.raises(ProviderRequestTimeout, match="wall-clock limit"):
+        provider.complete_json([], schema_name="timeout-test")
+
+    assert time.monotonic() - started < 0.12
+
+
+def test_provider_health_check_is_authenticated_and_does_not_send_paper_content(monkeypatch):
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        return FakeResponse({"data": []})
+
+    monkeypatch.setattr("paper_cli.ai.providers.requests.get", fake_get)
+    payload = check_provider_health(
+        ProviderConfig(
+            base_url="http://example.test/v1",
+            api_key="key",
+            model="model-a",
+            timeout_seconds=2,
+        )
+    )
+
+    assert payload["ok"] is True
+    assert payload["check"] == "GET /models"
+    assert calls == [
+        ("http://example.test/v1/models", {"headers": {"Authorization": "Bearer key"}, "timeout": 2})
+    ]
+
+
+def test_provider_doctor_cli_returns_stable_non_secret_json(tmp_path, monkeypatch, capsys):
+    library = tmp_path / "library"
+    main(["init", str(library)])
+    monkeypatch.setenv("PAPER_AI_API_KEY", "secret")
+    monkeypatch.setenv("PAPER_AI_MODEL", "model-a")
+    monkeypatch.setattr(
+        "paper_cli.ai.providers.requests.get",
+        lambda url, **kwargs: FakeResponse({"data": []}),
+    )
+
+    assert main(["--library", str(library), "provider", "doctor", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["model"] == "model-a"
+    assert "secret" not in json.dumps(payload)
 
 
 def test_repair_fails_without_provider_config(tmp_path, monkeypatch):

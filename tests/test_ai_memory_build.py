@@ -277,7 +277,7 @@ def test_memory_build_reports_provider_failure_without_partial_output(tmp_path):
     assert not (library / "_memory" / "library-memory.json").exists()
 
 
-def test_memory_build_fails_without_provider_config(tmp_path, capsys):
+def test_memory_build_fails_without_provider_config(tmp_path, capsys, monkeypatch):
     library = tmp_path / "library"
     make_bundle(
         library,
@@ -287,6 +287,9 @@ def test_memory_build_fails_without_provider_config(tmp_path, capsys):
         with_summary=True,
         init=True,
     )
+    monkeypatch.delenv("PAPER_AI_API_KEY", raising=False)
+    monkeypatch.delenv("PAPER_AI_MODEL", raising=False)
+    monkeypatch.delenv("PAPER_AI_BASE_URL", raising=False)
 
     assert main(["--library", str(library), "memory", "build", "--json"]) == 1
 

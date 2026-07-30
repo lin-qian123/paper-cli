@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 
 from . import __version__
@@ -20,10 +21,40 @@ from .importer import import_path
 from .indexes import find_paper_dirs
 from .models import read_paper
 from .papers import inspect_paper, paper_row, resolve_one_paper
+from .runtime import RuntimeReporter
 
 
 def add_json_flag(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+
+
+def _positive_seconds(value: str) -> float:
+    try:
+        seconds = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a number of seconds") from exc
+    if seconds <= 0:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return seconds
+
+
+def add_ai_budget_flags(parser: argparse.ArgumentParser, *, include_paper: bool = False) -> None:
+    parser.add_argument(
+        "--request-timeout-seconds",
+        type=_positive_seconds,
+        help="hard wall-clock limit for one AI provider request",
+    )
+    if include_paper:
+        parser.add_argument(
+            "--paper-timeout-seconds",
+            type=_positive_seconds,
+            help="total AI time limit for one paper summary",
+        )
+        parser.add_argument(
+            "--max-ai-seconds",
+            type=_positive_seconds,
+            help="total AI time limit for this summary command",
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     repair_parser.add_argument("--collection", help="limit repair scope by collection path")
     repair_parser.add_argument("--limit", type=int, help="maximum number of bundles to repair")
     repair_parser.add_argument("--dry-run", action="store_true", help="plan repairs without writing files")
+    add_ai_budget_flags(repair_parser)
     add_json_flag(repair_parser)
     memory_parser = subparsers.add_parser("memory", help="build hierarchical agent memory")
     memory_subparsers = memory_parser.add_subparsers(dest="memory_command")
@@ -102,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     memory_build_parser.add_argument("--limit", type=int, help="maximum papers to process")
     memory_build_parser.add_argument("--force", action="store_true", help="regenerate existing outputs")
     memory_build_parser.add_argument("--dry-run", action="store_true", help="plan memory build without writes")
+    add_ai_budget_flags(memory_build_parser)
     add_json_flag(memory_build_parser)
     extract_parser = subparsers.add_parser("extract", help="extract structured paper information")
     extract_subparsers = extract_parser.add_subparsers(dest="extract_command")
@@ -132,7 +165,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     summary_parser.add_argument("--force", action="store_true", help="regenerate existing outputs")
     summary_parser.add_argument("--dry-run", action="store_true", help="plan extraction without writes")
+    add_ai_budget_flags(summary_parser, include_paper=True)
     add_json_flag(summary_parser)
+
+    provider_parser = subparsers.add_parser("provider", help="check configured AI provider")
+    provider_subparsers = provider_parser.add_subparsers(dest="provider_command")
+    provider_doctor_parser = provider_subparsers.add_parser(
+        "doctor", help="perform an authenticated provider health check without paper content"
+    )
+    provider_doctor_parser.add_argument("--request-timeout-seconds", type=_positive_seconds)
+    add_json_flag(provider_doctor_parser)
 
     validate_parser = subparsers.add_parser("validate", help="run local validation workflows")
     validate_subparsers = validate_parser.add_subparsers(dest="validate_command")
@@ -239,13 +281,21 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             jobs = args.jobs if args.jobs is not None else 4
-        converted = convert_pending(
-            Path(args.library),
-            converter,
-            batch_size=args.batch_size,
-            jobs=jobs,
-        )
+        reporter = RuntimeReporter(Path(args.library), "convert")
+        reporter.started({"stage": "conversion", "count": _pending_count(Path(args.library))})
+        try:
+            converted = convert_pending(
+                Path(args.library),
+                converter,
+                batch_size=args.batch_size,
+                jobs=jobs,
+                event_sink=reporter.emit,
+            )
+        except BaseException as exc:
+            reporter.emit("run-failed", {"stage": "conversion", "error": str(exc)})
+            raise
         mark_bundles_stale(Path(args.library), converted, reason="convert")
+        reporter.finished(ok=True, details={"stage": "conversion", "count": len(converted)})
         _emit({"ok": True, "converted": [str(path) for path in converted]}, args.json)
         return 0
     if args.command == "list":
@@ -345,6 +395,31 @@ def main(argv: list[str] | None = None) -> int:
             for issue in issues:
                 print(f"{issue.code}: {issue.path} - {issue.message}")
         return 1 if issues else 0
+    if args.command == "provider":
+        if args.provider_command != "doctor":
+            parser.error("provider currently requires a subcommand such as doctor")
+        from .ai.providers import ProviderConfigError, check_provider_health, load_provider_config
+
+        try:
+            config = load_provider_config(Path(args.library))
+            if args.request_timeout_seconds is not None:
+                config = replace(config, timeout_seconds=args.request_timeout_seconds)
+            payload = check_provider_health(config)
+        except ProviderConfigError as exc:
+            payload = {"ok": False, "error": str(exc)}
+        except Exception as exc:
+            payload = {"ok": False, "error": str(exc)}
+        if args.json:
+            _emit(payload, True)
+        else:
+            if payload["ok"]:
+                print(
+                    f"provider: {payload['provider']} model={payload['model']} "
+                    f"timeout={payload['request_timeout_seconds']}s"
+                )
+            else:
+                print(f"provider check failed: {payload['error']}")
+        return 0 if payload["ok"] else 1
     if args.command == "repair":
         from .ai.providers import (
             OpenAICompatibleProvider,
@@ -353,9 +428,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         from .ai.repair import repair_library
 
+        reporter = RuntimeReporter(Path(args.library), "repair", persist=not args.dry_run)
+        reporter.started({"stage": "repair"})
         try:
-            provider = OpenAICompatibleProvider(load_provider_config(Path(args.library)))
+            config = load_provider_config(Path(args.library))
+            if args.request_timeout_seconds is not None:
+                config = replace(config, timeout_seconds=args.request_timeout_seconds)
+            provider = OpenAICompatibleProvider(config)
         except ProviderConfigError as exc:
+            reporter.finished(ok=False, details={"stage": "repair", "error": str(exc)})
             payload = {"ok": False, "error": str(exc), "repaired": [], "failed": []}
             if args.json:
                 _emit(payload, True)
@@ -370,6 +451,7 @@ def main(argv: list[str] | None = None) -> int:
             paper=args.paper,
             collection=args.collection,
             limit=args.limit,
+            event_sink=reporter.emit,
         )
         if not args.dry_run:
             changed_paths = [
@@ -378,6 +460,10 @@ def main(argv: list[str] | None = None) -> int:
                 if row.get("metadata_changed") or row.get("markdown_changed")
             ]
             mark_bundles_stale(Path(args.library), changed_paths, reason="repair")
+        reporter.finished(
+            ok=payload["ok"],
+            details={"stage": "repair", "count": len(payload["repaired"]), "error": None},
+        )
         if args.json:
             _emit(payload, True)
         else:
@@ -395,6 +481,8 @@ def main(argv: list[str] | None = None) -> int:
         from .ai.memory_build import build_memory_library
 
         provider = None
+        reporter = RuntimeReporter(Path(args.library), "memory-build", persist=not args.dry_run)
+        reporter.started({"stage": "memory-build"})
         if not args.dry_run:
             from .ai.providers import (
                 OpenAICompatibleProvider,
@@ -403,8 +491,12 @@ def main(argv: list[str] | None = None) -> int:
             )
 
             try:
-                provider = OpenAICompatibleProvider(load_provider_config(Path(args.library)))
+                config = load_provider_config(Path(args.library))
+                if args.request_timeout_seconds is not None:
+                    config = replace(config, timeout_seconds=args.request_timeout_seconds)
+                provider = OpenAICompatibleProvider(config)
             except ProviderConfigError as exc:
+                reporter.finished(ok=False, details={"stage": "memory-build", "error": str(exc)})
                 payload = {
                     "ok": False,
                     "error": str(exc),
@@ -426,6 +518,11 @@ def main(argv: list[str] | None = None) -> int:
             limit=args.limit,
             force=args.force,
             dry_run=args.dry_run,
+            event_sink=reporter.emit,
+        )
+        reporter.finished(
+            ok=payload["ok"],
+            details={"stage": "memory-build", "count": len(payload["written"]), "error": None},
         )
         if args.json:
             _emit(payload, True)
@@ -446,6 +543,8 @@ def main(argv: list[str] | None = None) -> int:
         from .ai.memory_build import refresh_memory_for_bundles
 
         provider = None
+        reporter = RuntimeReporter(Path(args.library), "extract-summary", persist=not args.dry_run)
+        reporter.started({"stage": "summary"})
         if not args.dry_run:
             from .ai.providers import (
                 OpenAICompatibleProvider,
@@ -454,8 +553,12 @@ def main(argv: list[str] | None = None) -> int:
             )
 
             try:
-                provider = OpenAICompatibleProvider(load_provider_config(Path(args.library)))
+                config = load_provider_config(Path(args.library))
+                if args.request_timeout_seconds is not None:
+                    config = replace(config, timeout_seconds=args.request_timeout_seconds)
+                provider = OpenAICompatibleProvider(config)
             except ProviderConfigError as exc:
+                reporter.finished(ok=False, details={"stage": "summary", "error": str(exc)})
                 payload = {"ok": False, "error": str(exc), "extracted": [], "failed": []}
                 if args.json:
                     _emit(payload, True)
@@ -474,6 +577,9 @@ def main(argv: list[str] | None = None) -> int:
             retries=args.retries,
             force=args.force,
             dry_run=args.dry_run,
+            paper_timeout_seconds=args.paper_timeout_seconds,
+            max_ai_seconds=args.max_ai_seconds,
+            event_sink=reporter.emit,
         )
         if not args.dry_run and provider is not None:
             extracted_paths = [Path(row["path"]) for row in payload["extracted"]]
@@ -487,6 +593,10 @@ def main(argv: list[str] | None = None) -> int:
                     payload.setdefault("warnings", []).append(
                         "memory refresh failed after extract summary; summaries were still written"
                     )
+        reporter.finished(
+            ok=payload["ok"],
+            details={"stage": "summary", "count": len(payload["extracted"]), "error": None},
+        )
         if args.json:
             _emit(payload, True)
         else:

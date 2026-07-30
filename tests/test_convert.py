@@ -166,7 +166,18 @@ def test_convert_pending_appends_job_history(tmp_path):
         json.loads(line)
         for line in (library / "indexes" / "jobs.jsonl").read_text(encoding="utf-8").splitlines()
     ]
+    run_events = [
+        json.loads(line)
+        for line in (library / "indexes" / "runs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     assert [event["event"] for event in events] == ["conversion-started", "conversion-finished"]
+    assert [event["event"] for event in run_events] == [
+        "run-started",
+        "paper-started",
+        "paper-finished",
+        "run-finished",
+    ]
+    assert {event["command"] for event in run_events} == {"convert"}
     assert events[0]["paper_id"].startswith("sha256:")
     assert events[0]["converter"] == "local-fixture"
     assert events[0]["attempt"] == 1

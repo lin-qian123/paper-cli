@@ -111,7 +111,8 @@ Output:
     "raw/mineru/",
     "conversion.json",
     "indexes/papers.jsonl",
-    "indexes/jobs.jsonl"
+    "indexes/jobs.jsonl",
+    "indexes/runs.jsonl"
   ]
 }
 ```

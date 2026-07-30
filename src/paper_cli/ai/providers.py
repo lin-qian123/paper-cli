@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -25,10 +26,14 @@ class ProviderConfig:
     api_key: str
     model: str
     temperature: float = 0
-    timeout_seconds: int = 60
+    timeout_seconds: float = 60
 
 
 class ProviderConfigError(ValueError):
+    pass
+
+
+class ProviderRequestTimeout(TimeoutError):
     pass
 
 
@@ -54,9 +59,11 @@ def load_provider_config(library_dir: Path) -> ProviderConfig:
     )
     model = _env_or_config("PAPER_AI_MODEL", config, "model", "")
     temperature = float(_env_or_config("PAPER_AI_TEMPERATURE", config, "temperature", 0))
-    timeout_seconds = int(
+    timeout_seconds = float(
         _env_or_config("PAPER_AI_TIMEOUT_SECONDS", config, "timeout_seconds", 60)
     )
+    if timeout_seconds <= 0:
+        raise ProviderConfigError("AI request timeout_seconds must be greater than zero")
 
     missing = []
     if not api_key:
@@ -82,6 +89,35 @@ class OpenAICompatibleProvider:
         self.config = config
         self.model = config.model
 
+    def with_timeout(self, timeout_seconds: float) -> "OpenAICompatibleProvider":
+        if timeout_seconds <= 0:
+            raise ValueError("AI request timeout must be greater than zero")
+        return OpenAICompatibleProvider(
+            replace(self.config, timeout_seconds=max(0.001, timeout_seconds))
+        )
+
+    def _run_with_wall_clock(self, call, *, schema_name: str):
+        result: dict[str, Any] = {}
+        done = threading.Event()
+
+        def run() -> None:
+            try:
+                result["value"] = call()
+            except BaseException as exc:
+                result["error"] = exc
+            finally:
+                done.set()
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        if not done.wait(timeout=self.config.timeout_seconds):
+            raise ProviderRequestTimeout(
+                f"AI request for {schema_name} exceeded the {self.config.timeout_seconds}s wall-clock limit"
+            )
+        if "error" in result:
+            raise result["error"]
+        return result["value"]
+
     def complete_json(self, messages: list[dict[str, str]], *, schema_name: str) -> dict[str, Any]:
         payload = {
             "model": self.config.model,
@@ -89,14 +125,17 @@ class OpenAICompatibleProvider:
             "temperature": self.config.temperature,
             "response_format": {"type": "json_object"},
         }
-        response = requests.post(
-            f"{self.config.base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.config.api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=self.config.timeout_seconds,
+        response = self._run_with_wall_clock(
+            lambda: requests.post(
+                f"{self.config.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.config.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=self.config.timeout_seconds,
+            ),
+            schema_name=schema_name,
         )
         response.raise_for_status()
         data = response.json()
@@ -111,3 +150,26 @@ class OpenAICompatibleProvider:
         if not isinstance(parsed, dict):
             raise ValueError(f"AI response for {schema_name} must be a JSON object")
         return parsed
+
+
+def check_provider_health(config: ProviderConfig) -> dict[str, Any]:
+    """Perform an authenticated, content-free OpenAI-compatible health check."""
+
+    provider = OpenAICompatibleProvider(config)
+    response = provider._run_with_wall_clock(
+        lambda: requests.get(
+            f"{config.base_url}/models",
+            headers={"Authorization": f"Bearer {config.api_key}"},
+            timeout=config.timeout_seconds,
+        ),
+        schema_name="provider-health-check",
+    )
+    response.raise_for_status()
+    return {
+        "ok": True,
+        "provider": provider.name,
+        "base_url": config.base_url,
+        "model": config.model,
+        "request_timeout_seconds": config.timeout_seconds,
+        "check": "GET /models",
+    }

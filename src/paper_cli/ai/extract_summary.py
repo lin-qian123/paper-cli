@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from threading import Semaphore
@@ -13,7 +14,7 @@ from paper_cli.indexes import find_paper_dirs
 from paper_cli.models import PaperRecord, read_paper, utc_now_iso
 
 from .markdown_blocks import MarkdownBlock, split_markdown_blocks
-from .providers import AIProvider
+from .providers import AIProvider, OpenAICompatibleProvider, ProviderRequestTimeout
 
 SUMMARY_DIR = Path("extracts") / "summary"
 DEFAULT_EXTRACT_SUMMARY_WORKERS = 16
@@ -21,6 +22,7 @@ DEFAULT_EXTRACT_SUMMARY_PAPER_WORKERS = 16
 DEFAULT_EXTRACT_SUMMARY_MAX_REQUESTS = 500
 DEFAULT_EXTRACT_SUMMARY_RETRIES = 2
 DEFAULT_EXTRACT_SUMMARY_RETRY_WAIT_SECONDS = 10.0
+RuntimeEventSink = Callable[[str, dict[str, Any]], None]
 NON_MAIN_SECTIONS = {
     "acknowledgements",
     "acknowledgments",
@@ -206,6 +208,30 @@ def effective_worker_count(*, workers: int, batch_count: int) -> int:
     return min(max(1, workers), batch_count)
 
 
+def _deadline_after(seconds: float | None) -> float | None:
+    if seconds is None:
+        return None
+    if seconds <= 0:
+        raise ValueError("AI time budgets must be greater than zero")
+    return time.monotonic() + seconds
+
+
+def _remaining_seconds(deadline: float | None, *, scope: str) -> float | None:
+    if deadline is None:
+        return None
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError(f"AI {scope} time budget was exceeded")
+    return remaining
+
+
+def _provider_with_deadline(provider: AIProvider, deadline: float | None) -> AIProvider:
+    remaining = _remaining_seconds(deadline, scope="request")
+    if remaining is None or not isinstance(provider, OpenAICompatibleProvider):
+        return provider
+    return provider.with_timeout(min(provider.config.timeout_seconds, remaining))
+
+
 def _complete_json_with_retries(
     provider: AIProvider,
     messages: list[dict[str, str]],
@@ -214,21 +240,32 @@ def _complete_json_with_retries(
     request_limiter: Semaphore | None,
     retries: int,
     retry_wait: float,
+    deadline: float | None = None,
+    event_sink: RuntimeEventSink | None = None,
 ) -> dict[str, Any]:
     attempts = max(0, retries) + 1
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
+            active_provider = _provider_with_deadline(provider, deadline)
             if request_limiter is None:
-                return provider.complete_json(messages, schema_name=schema_name)
+                return active_provider.complete_json(messages, schema_name=schema_name)
             with request_limiter:
-                return provider.complete_json(messages, schema_name=schema_name)
+                return active_provider.complete_json(messages, schema_name=schema_name)
         except Exception as exc:
             last_error = exc
+            if isinstance(exc, ProviderRequestTimeout):
+                break
             if attempt == attempts:
                 break
+            if event_sink:
+                event_sink(
+                    "retrying",
+                    {"stage": schema_name, "attempt": attempt, "error": str(exc)},
+                )
             if retry_wait > 0:
-                time.sleep(retry_wait)
+                remaining = _remaining_seconds(deadline, scope="request")
+                time.sleep(min(retry_wait, remaining) if remaining is not None else retry_wait)
     raise RuntimeError(
         f"{schema_name} failed after {attempts} attempt(s): {last_error}"
     ) from last_error
@@ -592,6 +629,8 @@ def _extract_block_summaries(
     request_limiter: Semaphore | None,
     retries: int,
     retry_wait: float,
+    deadline: float | None = None,
+    event_sink: RuntimeEventSink | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     warnings: list[str] = []
     if not batches:
@@ -606,6 +645,8 @@ def _extract_block_summaries(
             request_limiter=request_limiter,
             retries=retries,
             retry_wait=retry_wait,
+            deadline=deadline,
+            event_sink=event_sink,
         )
         summaries, batch_warnings = _normalize_block_summaries(
             response,
@@ -720,6 +761,8 @@ def extract_summary_bundle(
     request_limiter: Semaphore | None = None,
     retries: int = DEFAULT_EXTRACT_SUMMARY_RETRIES,
     retry_wait: float = DEFAULT_EXTRACT_SUMMARY_RETRY_WAIT_SECONDS,
+    deadline: float | None = None,
+    event_sink: RuntimeEventSink | None = None,
 ) -> dict[str, Any]:
     output_dir = bundle_dir / SUMMARY_DIR
     if output_dir.joinpath("summary.json").exists() and not force:
@@ -735,7 +778,13 @@ def extract_summary_bundle(
             "summarizable_blocks": len(candidates),
             "batches": len(batches),
         }
+    _remaining_seconds(deadline, scope="paper")
     brief = _paper_brief(record, source_map)
+    if event_sink:
+        event_sink(
+            "stage-started",
+            {"path": str(bundle_dir), "stage": "block-summaries", "count": len(batches)},
+        )
     block_summaries, warnings = _extract_block_summaries(
         provider=provider,
         brief=brief,
@@ -744,9 +793,14 @@ def extract_summary_bundle(
         request_limiter=request_limiter,
         retries=retries,
         retry_wait=retry_wait,
+        deadline=deadline,
+        event_sink=event_sink,
     )
     summary_blocks = _build_summary_blocks(source_map=source_map, block_summaries=block_summaries)
     section_inputs = _section_inputs(source_map=source_map, summary_blocks=summary_blocks)
+    _remaining_seconds(deadline, scope="paper")
+    if event_sink:
+        event_sink("stage-started", {"path": str(bundle_dir), "stage": "section-summary"})
     section_response = _complete_json_with_retries(
         provider,
         _section_messages(brief=brief, sections=section_inputs),
@@ -754,9 +808,14 @@ def extract_summary_bundle(
         request_limiter=request_limiter,
         retries=retries,
         retry_wait=retry_wait,
+        deadline=deadline,
+        event_sink=event_sink,
     )
     sections, section_warnings = _normalize_sections(section_response, section_inputs)
     warnings.extend(section_warnings)
+    _remaining_seconds(deadline, scope="paper")
+    if event_sink:
+        event_sink("stage-started", {"path": str(bundle_dir), "stage": "graph"})
     graph_response = _complete_json_with_retries(
         provider,
         _graph_messages(blocks=summary_blocks, sections=sections),
@@ -764,6 +823,8 @@ def extract_summary_bundle(
         request_limiter=request_limiter,
         retries=retries,
         retry_wait=retry_wait,
+        deadline=deadline,
+        event_sink=event_sink,
     )
     graph, graph_warnings = _normalize_graph(
         graph_response,
@@ -848,6 +909,9 @@ def extract_summary_library(
     retry_wait: float = DEFAULT_EXTRACT_SUMMARY_RETRY_WAIT_SECONDS,
     force: bool = False,
     dry_run: bool = False,
+    paper_timeout_seconds: float | None = None,
+    max_ai_seconds: float | None = None,
+    event_sink: RuntimeEventSink | None = None,
 ) -> dict[str, Any]:
     extracted: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -860,9 +924,12 @@ def extract_summary_library(
         limit=limit,
     )
     request_limiter = Semaphore(max(1, max_requests))
+    command_deadline = _deadline_after(max_ai_seconds)
 
     def run_candidate(index: int, bundle_dir: Path, record: PaperRecord) -> tuple[int, dict[str, Any]]:
         try:
+            if event_sink and not dry_run:
+                event_sink("paper-started", {"path": str(bundle_dir), "stage": "summary"})
             if dry_run:
                 row = extract_summary_bundle(
                     bundle_dir,
@@ -875,6 +942,12 @@ def extract_summary_library(
                 return index, row
             if provider is None:
                 raise ValueError("AI provider is required unless --dry-run is used")
+            command_remaining = _remaining_seconds(command_deadline, scope="command")
+            paper_deadline = _deadline_after(paper_timeout_seconds)
+            if command_remaining is not None:
+                command_limit = _deadline_after(command_remaining)
+                if paper_deadline is None or command_limit < paper_deadline:
+                    paper_deadline = command_limit
             row = extract_summary_bundle(
                 bundle_dir,
                 record,
@@ -885,6 +958,8 @@ def extract_summary_library(
                 request_limiter=request_limiter,
                 retries=retries,
                 retry_wait=retry_wait,
+                deadline=paper_deadline,
+                event_sink=event_sink,
             )
             return index, row
         except Exception as exc:
@@ -916,6 +991,16 @@ def extract_summary_library(
             failed.append({"path": row["path"], "error": row["error"]})
         else:
             extracted.append(row)
+        if event_sink and not dry_run:
+            event_sink(
+                "paper-finished" if row["status"] in {"extracted", "skipped"} else "paper-failed",
+                {
+                    "path": row["path"],
+                    "stage": "summary",
+                    "ok": row["status"] in {"extracted", "skipped"},
+                    "error": row.get("error"),
+                },
+            )
     return {
         "ok": not failed,
         "extracted": extracted,

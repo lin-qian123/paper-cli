@@ -46,3 +46,10 @@ def append_job(library_dir: Path, event: dict[str, Any]) -> None:
     index_dir.mkdir(parents=True, exist_ok=True)
     with (index_dir / "jobs.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
+def append_run_event(library_dir: Path, event: dict[str, Any]) -> None:
+    index_dir = library_dir / "indexes"
+    index_dir.mkdir(parents=True, exist_ok=True)
+    with (index_dir / "runs.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=False) + "\n")

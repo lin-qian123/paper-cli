@@ -11,6 +11,7 @@ from paper_cli.ai.extract_summary import (
     effective_worker_count,
     extract_summary_library,
 )
+from paper_cli.ai.providers import OpenAICompatibleProvider, ProviderConfig, ProviderRequestTimeout
 from paper_cli.cli import main
 from paper_cli.models import PaperRecord, write_paper
 
@@ -226,6 +227,60 @@ def test_extract_summary_writes_traceable_outputs_without_modifying_source(tmp_p
         "extract-summary-sections",
         "extract-summary-graph",
     ]
+
+
+def test_extract_summary_enforces_paper_budget_for_openai_compatible_provider(tmp_path, monkeypatch):
+    library = tmp_path / "library"
+    make_summary_bundle(library)
+
+    def slow_post(url, **kwargs):
+        time.sleep(0.2)
+        raise AssertionError("the response should be abandoned by the wall-clock timeout")
+
+    monkeypatch.setattr("paper_cli.ai.providers.requests.post", slow_post)
+    provider = OpenAICompatibleProvider(
+        ProviderConfig(
+            base_url="http://example.test/v1",
+            api_key="key",
+            model="model-a",
+            timeout_seconds=10,
+        )
+    )
+
+    started = time.monotonic()
+    payload = extract_summary_library(
+        library,
+        provider,
+        force=True,
+        retries=0,
+        paper_timeout_seconds=0.02,
+    )
+
+    assert payload["ok"] is False
+    assert "wall-clock limit" in payload["failed"][0]["error"]
+    assert time.monotonic() - started < 0.12
+
+
+def test_extract_summary_does_not_retry_a_hard_provider_timeout(tmp_path):
+    class TimedOutProvider:
+        name = "fake"
+        model = "fake-model"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, messages, *, schema_name):
+            self.calls += 1
+            raise ProviderRequestTimeout("hard timeout")
+
+    library = tmp_path / "library"
+    make_summary_bundle(library)
+    provider = TimedOutProvider()
+
+    payload = extract_summary_library(library, provider, force=True, retries=2)
+
+    assert payload["ok"] is False
+    assert provider.calls == 1
 
 
 def test_extract_summary_skips_existing_output_unless_force(tmp_path):

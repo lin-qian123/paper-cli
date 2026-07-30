@@ -128,7 +128,16 @@ AI commands read an OpenAI-compatible chat completions provider:
 export PAPER_AI_BASE_URL="https://api.openai.com/v1"
 export PAPER_AI_API_KEY="..."
 export PAPER_AI_MODEL="gpt-5.4-mini"
+export PAPER_AI_TIMEOUT_SECONDS=60  # hard wall-clock limit per provider request
 ```
+
+Before an expensive library run, check credentials and connectivity without sending paper text:
+
+```bash
+paper --library /path/to/paper-library provider doctor --json
+```
+
+`provider doctor` uses authenticated `GET /models` and never prints the API key. AI commands accept `--request-timeout-seconds`; summary extraction also accepts `--paper-timeout-seconds` and `--max-ai-seconds`. These caps make the command fail or continue predictably when a provider request stalls.
 
 Local MinerU settings can be stored in `paper-cli.yaml`:
 
@@ -167,9 +176,12 @@ paper inspect <paper-id-or-query>
 paper status
 paper doctor
 paper doctor --strict
+paper provider doctor
 ```
 
 Agent-facing commands support `--json` wherever structured output is useful.
+
+Long-running `convert`, `repair`, `extract summary`, and `memory build` commands emit compact progress to stderr and append non-secret run events to `indexes/runs.jsonl`. `--json` keeps stdout reserved for the final JSON result.
 
 ## Conversion
 
@@ -258,7 +270,7 @@ Higher-risk scientific content, formulas, tables, references, and long uncertain
 
 ```bash
 paper --library /path/to/paper-library extract summary --dry-run --json
-paper --library /path/to/paper-library extract summary --paper-workers 16 --workers 16 --max-requests 500 --json
+paper --library /path/to/paper-library extract summary --paper-workers 4 --workers 4 --max-requests 16 --paper-timeout-seconds 900 --max-ai-seconds 7200 --json
 paper --library /path/to/paper-library extract summary --paper <id-or-prefix> --force --json
 ```
 
@@ -338,6 +350,7 @@ paper-library/
   indexes/
     papers.jsonl
     jobs.jsonl
+    runs.jsonl
     memory-state.json
   _memory/
     library-memory.json

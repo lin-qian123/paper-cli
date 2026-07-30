@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 from .config import load_config
@@ -387,6 +388,7 @@ def _convert_pending_batch(
     *,
     batch_size: int,
     jobs: int,
+    event_sink: Callable[[str, dict], None] | None = None,
 ) -> list[Path]:
     converted: list[Path] = []
     converter_name = _converter_name(converter)
@@ -413,6 +415,11 @@ def _convert_pending_batch(
     for start in range(0, len(pending), batch_size):
         chunk = pending[start : start + batch_size]
         for item in chunk:
+            if event_sink:
+                event_sink(
+                    "paper-started",
+                    {"path": str(item.bundle_dir), "stage": "conversion", "attempt": item.attempt},
+                )
             _append_conversion_job(
                 library_dir,
                 item.bundle_dir,
@@ -465,6 +472,16 @@ def _convert_pending_batch(
             )
             if renamed_bundle is not None:
                 converted.append(renamed_bundle)
+                if event_sink:
+                    event_sink(
+                        "paper-finished",
+                        {"path": str(renamed_bundle), "stage": "conversion", "ok": True},
+                    )
+            elif event_sink:
+                event_sink(
+                    "paper-failed",
+                    {"path": str(item.bundle_dir), "stage": "conversion", "error": result.error},
+                )
     rebuild_papers_index(library_dir)
     return converted
 
@@ -475,9 +492,16 @@ def convert_pending(
     *,
     batch_size: int = 20,
     jobs: int = 1,
+    event_sink: Callable[[str, dict], None] | None = None,
 ) -> list[Path]:
     if hasattr(converter, "convert_batch"):
-        return _convert_pending_batch(library_dir, converter, batch_size=batch_size, jobs=jobs)
+        return _convert_pending_batch(
+            library_dir,
+            converter,
+            batch_size=batch_size,
+            jobs=jobs,
+            event_sink=event_sink,
+        )
 
     converted: list[Path] = []
     converter_name = _converter_name(converter)
@@ -487,6 +511,11 @@ def convert_pending(
             continue
         attempt = _read_previous_attempt(bundle_dir) + 1
         submitted_at = utc_now_iso()
+        if event_sink:
+            event_sink(
+                "paper-started",
+                {"path": str(bundle_dir), "stage": "conversion", "attempt": attempt},
+            )
         _append_conversion_job(
             library_dir,
             bundle_dir,
@@ -535,5 +564,15 @@ def convert_pending(
         )
         if renamed_bundle is not None:
             converted.append(renamed_bundle)
+            if event_sink:
+                event_sink(
+                    "paper-finished",
+                    {"path": str(renamed_bundle), "stage": "conversion", "ok": True},
+                )
+        elif event_sink:
+            event_sink(
+                "paper-failed",
+                {"path": str(bundle_dir), "stage": "conversion", "error": result.error},
+            )
     rebuild_papers_index(library_dir)
     return converted
