@@ -4,10 +4,16 @@
 
 > 把堆在文件夹里的 PDF，整理成 AI agent 真正读得懂、用得上、记得住的研究型文献库。
 
+<p align="center">
+  <img src="assets/icon/paper-cli-icon-legendary-v1.png" width="220" alt="paper-cli 传奇风图标：一捆被魔法点亮的研究论文" />
+</p>
+
 PDF 很适合承载论文，却并不适合让 agent 直接工作。
 对 agent 来说，更自然的入口是 Markdown、图片、结构化元数据、明确的状态文件，以及可以反复读取的长期记忆。
 
 `paper-cli` 正是为这件事而生的：它把本地论文集合转换成一个个稳定、可检查、可追踪的 paper bundle。每篇论文的原始 PDF、MinerU Markdown、图片、YAML 元数据、JSON 状态、AI 修复记录、可溯源摘要和分层记忆，都会清清楚楚地落在磁盘上。
+
+当前项目图标是一捆带有传奇感的研究资料：文档标记对应 paper bundle，卷轴、环绕的星辉与光点则对应可被 AI agent 调用的持久知识。PNG 为透明背景，适合用于项目主页、应用启动图标和头像。
 
 ## 为什么需要 paper-cli？
 
