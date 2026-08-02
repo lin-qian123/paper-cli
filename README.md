@@ -4,10 +4,16 @@
 
 > Turn PDF piles into agent-readable research libraries.
 
+<p align="center">
+  <img src="assets/icon/paper-cli-icon-legendary-v1.png" width="220" alt="paper-cli legendary icon: an enchanted research-paper bundle" />
+</p>
+
 PDFs are where papers live.
 Markdown is where agents can actually work.
 
 `paper-cli` is a local-first, agent-native literature management CLI. It turns local paper collections into durable, inspectable bundles: copied PDFs, MinerU Markdown, extracted images, YAML metadata, JSON state, AI repair records, source-traceable summaries, and layered library memory all live as explicit files on disk.
+
+The current project icon is a playful legendary research bundle: the document mark represents the paper bundle, while the scroll, orbiting sparks, and star represent durable knowledge made ready for AI agents. The PNG has a transparent background and is suitable for project pages, app launchers, and avatars.
 
 ## Why paper-cli?
 
